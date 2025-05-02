@@ -46,11 +46,11 @@ export default function AHRSPage() {
         // Current time for x-axis (in seconds)
         const currentTime = Math.floor(Date.now() / 1000);
 
-        // Update graph data (keep last 50 points)
-        setTimestamps((prev) => [...prev.slice(-49), currentTime]);
-        setRollData((prev) => [...prev.slice(-49), parsedData.Roll]);
-        setPitchData((prev) => [...prev.slice(-49), parsedData.Pitch]);
-        setYawData((prev) => [...prev.slice(-49), parsedData.Heading]);
+        // Update graph data (keep last 200 points)
+        setTimestamps((prev) => [...prev.slice(-200), currentTime]);
+        setRollData((prev) => [...prev.slice(-200), parsedData.Roll]);
+        setPitchData((prev) => [...prev.slice(-200), parsedData.Pitch]);
+        setYawData((prev) => [...prev.slice(-200), parsedData.Heading]);
 
         // Update raw data display
         setRawData({ ...parsedData, timestamp: currentTime });
@@ -242,3 +242,4 @@ function GraphContainer({ title, color, timestamps, data, yAxisLabel }) {
     </div>
   );
 }
+
