@@ -46,12 +46,16 @@ const formatCurrentValue = (value) => {
  */
 
 const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsTimestamps) => {
-  const ahrsWs = createRosWebSocket('/ahrs', (data) => {
+  const ahrsWs = createRosWebSocket('/ahrs', (message) => {
     try {
-      const { orientation } = data;
-      if (!orientation) throw new Error('Missing orientation data');
+      // For Float64MultiArray, the data is in message.data array
+      const dataArray = message.data || [];
       
-      const { x: roll, y: pitch, z: yaw } = orientation;
+      // Parse the orientation data (assuming [heading, pitch, roll] order)
+      const roll = dataArray[2] || 0;  // Roll is third element
+      const pitch = dataArray[1] || 0; // Pitch is second element
+      const yaw = dataArray[0] || 0;   // Heading/Yaw is first element
+      
       const timestamp = new Date().toLocaleTimeString();
 
       setRollData(prev => [...prev.slice(-49), roll]);
@@ -66,10 +70,12 @@ const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsT
 };
 
 const initializeBar30WebSocket = (setDepthData, setBar30Timestamps) => {
-  const bar30Ws = createRosWebSocket('/bar30/all', (message) => {
+  const bar30Ws = createRosWebSocket('/depth_impact', (message) => {
     try {
-      const depth = Number(message.data);
-      if (isNaN(depth)) throw new Error('Invalid depth value');
+      // For Float64MultiArray, data is in message.data array
+      // Assuming array contains [depth, temperature, pressure]
+      const dataArray = message.data || [];
+      const depth = dataArray[0] || 0;  // First value is depth
       
       setDepthData(prev => [...prev.slice(-49), depth]);
       setBar30Timestamps(prev => [...prev.slice(-49), new Date().toLocaleTimeString()]);
@@ -97,8 +103,6 @@ const initializeBatteryWebSocket = (setBatteryData, setBatteryTimestamps) => {
   });
   return batteryWs;
 };
-
-// Replace the existing initializeDvlWebSocket function with this:
 
 const initializeDvlWebSocket = (setDvlData, setDvlTimestamps) => {
   const dvlWs = createRosWebSocket('/dvl/data', (message) => {
@@ -233,6 +237,215 @@ function SensorPlot({ title, data, timestamps, titleColor, markerColor }) {
         <p className="text-lg font-mono" style={{ color: markerColor }}>
           {formatCurrentValue(currentValue)}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function DvlSensorGroup({ dvlData, dvlTimestamps }) {
+  const downloadCSV = () => {
+    let csvContent = 'Timestamp,X Velocity,Y Velocity,Z Velocity,Altitude,Valid\n';
+    dvlTimestamps.forEach((timestamp, index) => {
+      const data = dvlData[index] || {};
+      csvContent += `${timestamp},${data.x || ''},${data.y || ''},${data.z || ''},${data.altitude || ''},${data.valid || ''}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'dvl_data.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 col-span-1 md:col-span-3">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-center text-orange-400">
+          DVL Sensor Data
+        </h2>
+        <button
+          onClick={downloadCSV}
+          className="bg-teal-400 text-white px-3 py-1 rounded shadow hover:bg-teal-500 text-sm"
+        >
+          Download CSV
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* X Velocity Graph */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <Plot
+            data={[{
+              x: dvlTimestamps,
+              y: dvlData.map(d => d.x),
+              type: 'scatter',
+              mode: 'lines+markers',
+              marker: { color: '#FF4500' },
+              line: { color: '#FF4500', width: 2 },
+            }]}
+            layout={{
+              title: 'X Velocity',
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0)',
+              xaxis: { 
+                title: 'Time', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              yaxis: { 
+                title: 'Velocity (m/s)', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              margin: { t: 30, b: 50, l: 60, r: 30 },
+            }}
+            style={{ width: '100%', height: '200px' }}
+          />
+          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
+            <p className="text-sm text-gray-300">Current Value:</p>
+            <p className="text-lg font-mono text-orange-300">
+              {formatCurrentValue(dvlData[dvlData.length - 1]?.x)}
+            </p>
+          </div>
+        </div>
+
+        {/* Y Velocity Graph */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <Plot
+            data={[{
+              x: dvlTimestamps,
+              y: dvlData.map(d => d.y),
+              type: 'scatter',
+              mode: 'lines+markers',
+              marker: { color: '#FF8C00' },
+              line: { color: '#FF8C00', width: 2 },
+            }]}
+            layout={{
+              title: 'Y Velocity',
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0)',
+              xaxis: { 
+                title: 'Time', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              yaxis: { 
+                title: 'Velocity (m/s)', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              margin: { t: 30, b: 50, l: 60, r: 30 },
+            }}
+            style={{ width: '100%', height: '200px' }}
+          />
+          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
+            <p className="text-sm text-gray-300">Current Value:</p>
+            <p className="text-lg font-mono text-orange-300">
+              {formatCurrentValue(dvlData[dvlData.length - 1]?.y)}
+            </p>
+          </div>
+        </div>
+
+        {/* Z Velocity Graph */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <Plot
+            data={[{
+              x: dvlTimestamps,
+              y: dvlData.map(d => d.z),
+              type: 'scatter',
+              mode: 'lines+markers',
+              marker: { color: '#FF6347' },
+              line: { color: '#FF6347', width: 2 },
+            }]}
+            layout={{
+              title: 'Z Velocity',
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0)',
+              xaxis: { 
+                title: 'Time', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              yaxis: { 
+                title: 'Velocity (m/s)', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              margin: { t: 30, b: 50, l: 60, r: 30 },
+            }}
+            style={{ width: '100%', height: '200px' }}
+          />
+          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
+            <p className="text-sm text-gray-300">Current Value:</p>
+            <p className="text-lg font-mono text-orange-300">
+              {formatCurrentValue(dvlData[dvlData.length - 1]?.z)}
+            </p>
+          </div>
+        </div>
+
+        {/* Altitude Graph */}
+        <div className="bg-gray-700 rounded-lg p-4">
+          <Plot
+            data={[{
+              x: dvlTimestamps,
+              y: dvlData.map(d => d.altitude),
+              type: 'scatter',
+              mode: 'lines+markers',
+              marker: { color: '#FFA500' },
+              line: { color: '#FFA500', width: 2 },
+            }]}
+            layout={{
+              title: 'Altitude',
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0)',
+              xaxis: { 
+                title: 'Time', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              yaxis: { 
+                title: 'Altitude (m)', 
+                color: '#ffffff',
+                gridcolor: '#333333',
+                zerolinecolor: '#666666'
+              },
+              margin: { t: 30, b: 50, l: 60, r: 30 },
+            }}
+            style={{ width: '100%', height: '200px' }}
+          />
+          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
+            <p className="text-sm text-gray-300">Current Value:</p>
+            <p className="text-lg font-mono text-orange-300">
+              {formatCurrentValue(dvlData[dvlData.length - 1]?.altitude)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Display */}
+      <div className="mt-4 p-4 bg-gray-700 rounded-lg">
+        <div className="flex justify-between items-center">
+          <h3 className="text-md font-semibold text-green-400">
+            DVL Status
+          </h3>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            dvlData.length > 0 && dvlData[dvlData.length - 1]?.valid 
+              ? 'bg-green-500 text-white' 
+              : 'bg-red-500 text-white'
+          }`}>
+            {dvlData.length > 0 && dvlData[dvlData.length - 1]?.valid ? 'VALID' : 'INVALID'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -492,27 +705,9 @@ export default function CombinedGraphPage() {
             titleColor="#32CD32" 
             markerColor="#32CD32" 
           />
-          <SensorPlot 
-            title="DVL X Velocity" 
-            data={dvlData.map(d => d.x)} 
-            timestamps={dvlTimestamps} 
-            titleColor="#FF4500" 
-            markerColor="#FF4500" 
-          />
-          <SensorPlot 
-            title="DVL Y Velocity" 
-            data={dvlData.map(d => d.y)} 
-            timestamps={dvlTimestamps} 
-            titleColor="#FF8C00" 
-            markerColor="#FF8C00" 
-          />
-          <SensorPlot 
-            title="DVL Z Velocity" 
-            data={dvlData.map(d => d.z)} 
-            timestamps={dvlTimestamps} 
-            titleColor="#FF6347" 
-            markerColor="#FF6347" 
-          />
+          
+          {/* DVL Sensor Group - spans all columns */}
+          <DvlSensorGroup dvlData={dvlData} dvlTimestamps={dvlTimestamps} />
           
           {/* ROVL Sensor Group - spans all columns */}
           <RovlSensorGroup rovlData={rovlData} />
