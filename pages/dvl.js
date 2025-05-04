@@ -740,7 +740,7 @@ export default function DvlPage() {
       <div className="min-h-screen bg-gray-900 text-white p-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-semibold mb-2 text-center text-teal-400">
-            Sensor Data Dashboard
+            DVL Data Monitoring
           </h1>
           <div className={`text-center mb-6 ${getConnectionStatusColor()}`}>
             {connectionStatus}
@@ -952,9 +952,7 @@ export default function DvlPage() {
             </div>
           </div>
 
-          {/* Other Sensors Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* AHRS Data */}
+          {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
               <h2 className="text-lg font-semibold mb-4 text-blue-400">
                 AHRS Data
@@ -988,7 +986,6 @@ export default function DvlPage() {
               />
             </div>
 
-            {/* Heading */}
             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
               <h2 className="text-lg font-semibold mb-4 text-green-400">
                 Heading
@@ -1001,7 +998,6 @@ export default function DvlPage() {
               </div>
             </div>
 
-            {/* Battery Voltage */}
             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
               <h2 className="text-lg font-semibold mb-4 text-red-400">
                 Battery Voltage
@@ -1024,7 +1020,7 @@ export default function DvlPage() {
                 Last update: {data.battery.timestamps[data.battery.timestamps.length - 1] || 'Never'}
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Raw Data and Export Section */}
           <div className="grid grid-cols-1 gap-6">
