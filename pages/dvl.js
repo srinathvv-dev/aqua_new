@@ -579,6 +579,11 @@ export default function DvlPage() {
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [allData, setAllData] = useState([]);
   const [rawData, setRawData] = useState('Waiting for data...');
+  const [darkMode, setDarkMode] = useState(true);
+
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+  };
 
   useEffect(() => {
     console.log('Initializing WebSocket connection...');
@@ -737,41 +742,51 @@ export default function DvlPage() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-900 text-white p-8">
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-8 transition-colors duration-200`}>
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-semibold mb-2 text-center text-teal-400">
-            DVL Data Monitoring
-          </h1>
+          <div className="flex justify-between items-center mb-2">
+            <h1 className={`text-4xl font-semibold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+              DVL Data Monitoring
+            </h1>
+            <button
+              onClick={toggleTheme}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+            >
+              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+          </div>
           <div className={`text-center mb-6 ${getConnectionStatusColor()}`}>
             {connectionStatus}
           </div>
 
           {/* Current Values Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <h3 className="text-sm text-gray-400">X Velocity</h3>
-              <p className="text-xl font-mono text-blue-400">
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>X Velocity</h3>
+              <p className={`text-xl font-mono ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                 {formatValue(data.dvl.current.vx, 'm/s')}
               </p>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <h3 className="text-sm text-gray-400">Y Velocity</h3>
-              <p className="text-xl font-mono text-green-400">
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Y Velocity</h3>
+              <p className={`text-xl font-mono ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                 {formatValue(data.dvl.current.vy, 'm/s')}
               </p>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <h3 className="text-sm text-gray-400">Z Velocity</h3>
-              <p className="text-xl font-mono text-red-400">
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Z Velocity</h3>
+              <p className={`text-xl font-mono ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
                 {formatValue(data.dvl.current.vz, 'm/s')}
               </p>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <h3 className="text-sm text-gray-400">Status</h3>
+            <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Status</h3>
               <div className="flex items-center">
                 <span className={`h-3 w-3 rounded-full mr-2 ${getStatusColor(data.dvl.current.velocityValid)}`}></span>
                 <span>{data.dvl.current.velocityValid ? 'Valid' : 'Invalid'}</span>
-                <span className="ml-2 text-xs opacity-70">(Code: {data.dvl.current.status})</span>
+                <span className={`ml-2 text-xs ${darkMode ? 'opacity-70' : 'text-gray-500'}`}>
+                  (Code: {data.dvl.current.status})
+                </span>
               </div>
             </div>
           </div>
@@ -779,16 +794,16 @@ export default function DvlPage() {
           {/* DVL Data Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             {/* X Velocity */}
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-lg font-semibold text-blue-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                   X Velocity
                 </h2>
-                <div className="text-lg font-mono bg-gray-700 px-2 py-1 rounded">
+                <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   {formatValue(data.dvl.current.vx, 'm/s')}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mb-2">
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
@@ -797,14 +812,23 @@ export default function DvlPage() {
                   y: data.dvl.vx,
                   type: 'scatter',
                   mode: 'lines+markers',
-                  marker: { color: '#1D8CF8', size: 5 },
-                  line: { color: '#1D8CF8', width: 2 },
+                  marker: { color: darkMode ? '#1D8CF8' : '#2563eb', size: 5 },
+                  line: { color: darkMode ? '#1D8CF8' : '#2563eb', width: 2 },
                 }]}
                 layout={{
                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666', tickangle: -45 },
-                  yaxis: { title: 'Velocity (m/s)', color: '#ffffff', gridcolor: '#666666' },
+                  xaxis: { 
+                    title: 'Time', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
+                    tickangle: -45 
+                  },
+                  yaxis: { 
+                    title: 'Velocity (m/s)', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  },
                   margin: { t: 10, b: 60, l: 60, r: 30 },
                 }}
                 useResizeHandler
@@ -813,16 +837,16 @@ export default function DvlPage() {
             </div>
 
             {/* Y Velocity */}
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-lg font-semibold text-green-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                   Y Velocity
                 </h2>
-                <div className="text-lg font-mono bg-gray-700 px-2 py-1 rounded">
+                <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   {formatValue(data.dvl.current.vy, 'm/s')}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mb-2">
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
@@ -831,14 +855,23 @@ export default function DvlPage() {
                   y: data.dvl.vy,
                   type: 'scatter',
                   mode: 'lines+markers',
-                  marker: { color: '#4ECDC4', size: 5 },
-                  line: { color: '#4ECDC4', width: 2 },
+                  marker: { color: darkMode ? '#4ECDC4' : '#0d9488', size: 5 },
+                  line: { color: darkMode ? '#4ECDC4' : '#0d9488', width: 2 },
                 }]}
                 layout={{
                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666', tickangle: -45 },
-                  yaxis: { title: 'Velocity (m/s)', color: '#ffffff', gridcolor: '#666666' },
+                  xaxis: { 
+                    title: 'Time', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
+                    tickangle: -45 
+                  },
+                  yaxis: { 
+                    title: 'Velocity (m/s)', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  },
                   margin: { t: 10, b: 60, l: 60, r: 30 },
                 }}
                 useResizeHandler
@@ -847,16 +880,16 @@ export default function DvlPage() {
             </div>
 
             {/* Z Velocity */}
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-lg font-semibold text-red-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
                   Z Velocity
                 </h2>
-                <div className="text-lg font-mono bg-gray-700 px-2 py-1 rounded">
+                <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   {formatValue(data.dvl.current.vz, 'm/s')}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mb-2">
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
@@ -865,14 +898,23 @@ export default function DvlPage() {
                   y: data.dvl.vz,
                   type: 'scatter',
                   mode: 'lines+markers',
-                  marker: { color: '#FF6B6B', size: 5 },
-                  line: { color: '#FF6B6B', width: 2 },
+                  marker: { color: darkMode ? '#FF6B6B' : '#dc2626', size: 5 },
+                  line: { color: darkMode ? '#FF6B6B' : '#dc2626', width: 2 },
                 }]}
                 layout={{
                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666', tickangle: -45 },
-                  yaxis: { title: 'Velocity (m/s)', color: '#ffffff', gridcolor: '#666666' },
+                  xaxis: { 
+                    title: 'Time', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
+                    tickangle: -45 
+                  },
+                  yaxis: { 
+                    title: 'Velocity (m/s)', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  },
                   margin: { t: 10, b: 60, l: 60, r: 30 },
                 }}
                 useResizeHandler
@@ -884,16 +926,16 @@ export default function DvlPage() {
           {/* Additional DVL Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Altitude */}
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-lg font-semibold text-yellow-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                   Altitude
                 </h2>
-                <div className="text-lg font-mono bg-gray-700 px-2 py-1 rounded">
+                <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   {formatValue(data.dvl.current.altitude, 'm')}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mb-2">
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
@@ -902,14 +944,23 @@ export default function DvlPage() {
                   y: data.dvl.altitude,
                   type: 'scatter',
                   mode: 'lines+markers',
-                  marker: { color: '#FFD700', size: 5 },
-                  line: { color: '#FFD700', width: 2 },
+                  marker: { color: darkMode ? '#FFD700' : '#ca8a04', size: 5 },
+                  line: { color: darkMode ? '#FFD700' : '#ca8a04', width: 2 },
                 }]}
                 layout={{
                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666', tickangle: -45 },
-                  yaxis: { title: 'Altitude (m)', color: '#ffffff', gridcolor: '#666666' },
+                  xaxis: { 
+                    title: 'Time', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
+                    tickangle: -45 
+                  },
+                  yaxis: { 
+                    title: 'Altitude (m)', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  },
                   margin: { t: 10, b: 60, l: 60, r: 30 },
                 }}
                 useResizeHandler
@@ -918,16 +969,16 @@ export default function DvlPage() {
             </div>
 
             {/* Figure of Merit */}
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
-                <h2 className="text-lg font-semibold text-purple-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                   Figure of Merit
                 </h2>
-                <div className="text-lg font-mono bg-gray-700 px-2 py-1 rounded">
+                <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   {formatValue(data.dvl.current.fom)}
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mb-2">
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
@@ -936,14 +987,23 @@ export default function DvlPage() {
                   y: data.dvl.fom,
                   type: 'scatter',
                   mode: 'lines+markers',
-                  marker: { color: '#9B59B6', size: 5 },
-                  line: { color: '#9B59B6', width: 2 },
+                  marker: { color: darkMode ? '#9B59B6' : '#7e22ce', size: 5 },
+                  line: { color: darkMode ? '#9B59B6' : '#7e22ce', width: 2 },
                 }]}
                 layout={{
                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666', tickangle: -45 },
-                  yaxis: { title: 'FOM', color: '#ffffff', gridcolor: '#666666' },
+                  xaxis: { 
+                    title: 'Time', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
+                    tickangle: -45 
+                  },
+                  yaxis: { 
+                    title: 'FOM', 
+                    color: darkMode ? '#ffffff' : '#000000', 
+                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  },
                   margin: { t: 10, b: 60, l: 60, r: 30 },
                 }}
                 useResizeHandler
@@ -952,98 +1012,28 @@ export default function DvlPage() {
             </div>
           </div>
 
-          {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-              <h2 className="text-lg font-semibold mb-4 text-blue-400">
-                AHRS Data
-              </h2>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {data.ahrs.current.map((value, i) => (
-                  <div key={i} className="text-center">
-                    <div className="text-xs text-gray-400">Axis {i}</div>
-                    <div className="text-sm font-mono">
-                      {formatValue(value)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Plot
-                data={data.ahrs.data.map((values, i) => ({
-                  y: values,
-                  type: 'scatter',
-                  mode: 'lines',
-                  name: `Axis ${i}`
-                }))}
-                layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666' },
-                  yaxis: { title: 'Value', color: '#ffffff', gridcolor: '#666666' },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
-                }}
-                useResizeHandler
-                style={{ width: '100%', height: '250px' }}
-              />
-            </div>
-
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-              <h2 className="text-lg font-semibold mb-4 text-green-400">
-                Heading
-              </h2>
-              <div className="text-4xl font-mono text-center py-8">
-                {data.heading.value.toFixed(2)}°
-              </div>
-              <div className="text-xs text-gray-400 text-center mt-2">
-                Last update: {data.heading.timestamps[data.heading.timestamps.length - 1] || 'Never'}
-              </div>
-            </div>
-
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-              <h2 className="text-lg font-semibold mb-4 text-red-400">
-                Battery Voltage
-              </h2>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-center bg-gray-700 p-3 rounded">
-                  <div className="text-sm text-gray-400">Battery 1</div>
-                  <div className="text-2xl font-mono">
-                    {data.battery.voltage1.toFixed(2)}V
-                  </div>
-                </div>
-                <div className="text-center bg-gray-700 p-3 rounded">
-                  <div className="text-sm text-gray-400">Battery 2</div>
-                  <div className="text-2xl font-mono">
-                    {data.battery.voltage2.toFixed(2)}V
-                  </div>
-                </div>
-              </div>
-              <div className="text-xs text-gray-400 text-center">
-                Last update: {data.battery.timestamps[data.battery.timestamps.length - 1] || 'Never'}
-              </div>
-            </div>
-          </div> */}
-
           {/* Raw Data and Export Section */}
           <div className="grid grid-cols-1 gap-6">
-            <div className="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 flex justify-center">
+            <div className={`rounded-lg p-4 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex justify-center`}>
               <button
                 onClick={downloadCSV}
-                className="px-6 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg shadow-md font-medium transition-colors"
+                className={`px-6 py-2 ${darkMode ? 'bg-teal-600 hover:bg-teal-500' : 'bg-teal-700 hover:bg-teal-600'} text-white rounded-lg shadow-md font-medium transition-colors`}
                 disabled={allData.length === 0}
               >
                 {allData.length === 0 ? 'No Data to Export' : 'Export Data (CSV)'}
               </button>
             </div>
 
-            <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-yellow-400">
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                   Raw Data
                 </h2>
-                <span className="text-xs text-gray-400">
+                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Last update: {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'Never'}
                 </span>
               </div>
-              <pre className="text-xs bg-gray-900 p-4 rounded overflow-x-auto text-gray-300 max-h-60">
+              <pre className={`text-xs p-4 rounded overflow-x-auto max-h-60 ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-800'}`}>
                 {rawData}
               </pre>
             </div>

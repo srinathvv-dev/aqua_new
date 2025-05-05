@@ -10,6 +10,11 @@ export default function RovlPage() {
     const [srValues, setSrValues] = useState([]);
     const [eyValues, setEyValues] = useState([]);
     const [latestMessage, setLatestMessage] = useState(null);
+    const [darkMode, setDarkMode] = useState(true);
+
+    const toggleTheme = () => {
+        setDarkMode(!darkMode);
+    };
 
     const parseUSRTHMessage = (message) => {
         const fields = message.split(',');
@@ -66,13 +71,22 @@ export default function RovlPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-8">
+        <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-8 transition-colors duration-200`}>
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-4xl font-semibold mb-10 text-center text-teal-400">
-                    ROVL Sensor Monitoring
-                </h1>
-                <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-                    <h2 className="text-lg font-semibold text-center mb-4 text-purple-400">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className={`text-4xl font-semibold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+                        ROVL Sensor Monitoring
+                    </h1>
+                    <button
+                        onClick={toggleTheme}
+                        className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+                    >
+                        {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                    </button>
+                </div>
+                
+                <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <h2 className={`text-lg font-semibold text-center mb-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                         ROVL Data Graphs
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -85,15 +99,26 @@ export default function RovlPage() {
                                         y: abValues,
                                         type: 'scatter',
                                         mode: 'lines+markers',
-                                        marker: { color: '#1abc9c' },
+                                        marker: { color: darkMode ? '#1abc9c' : '#0d9488' },
+                                        line: { color: darkMode ? '#1abc9c' : '#0d9488', width: 2 },
                                     },
                                 ]}
                                 layout={{
                                     title: 'Apparent Bearing (ab)',
                                     paper_bgcolor: 'rgba(0, 0, 0, 0)',
                                     plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                                    xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666' },
-                                    yaxis: { title: 'Bearing (degrees)', color: '#ffffff', gridcolor: '#666666' },
+                                    xaxis: { 
+                                        title: 'Time', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb',
+                                        tickangle: -45 
+                                    },
+                                    yaxis: { 
+                                        title: 'Bearing (degrees)', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                                    },
+                                    margin: { t: 40, b: 60, l: 60, r: 30 },
                                 }}
                                 style={{ width: '100%', height: '300px' }}
                             />
@@ -108,15 +133,26 @@ export default function RovlPage() {
                                         y: srValues,
                                         type: 'scatter',
                                         mode: 'lines+markers',
-                                        marker: { color: '#e74c3c' },
+                                        marker: { color: darkMode ? '#e74c3c' : '#dc2626' },
+                                        line: { color: darkMode ? '#e74c3c' : '#dc2626', width: 2 },
                                     },
                                 ]}
                                 layout={{
                                     title: 'Slant Range (sr)',
                                     paper_bgcolor: 'rgba(0, 0, 0, 0)',
                                     plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                                    xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666' },
-                                    yaxis: { title: 'Range (meters)', color: '#ffffff', gridcolor: '#666666' },
+                                    xaxis: { 
+                                        title: 'Time', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb',
+                                        tickangle: -45 
+                                    },
+                                    yaxis: { 
+                                        title: 'Range (meters)', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                                    },
+                                    margin: { t: 40, b: 60, l: 60, r: 30 },
                                 }}
                                 style={{ width: '100%', height: '300px' }}
                             />
@@ -131,15 +167,26 @@ export default function RovlPage() {
                                         y: eyValues,
                                         type: 'scatter',
                                         mode: 'lines+markers',
-                                        marker: { color: '#3498db' },
+                                        marker: { color: darkMode ? '#3498db' : '#2563eb' },
+                                        line: { color: darkMode ? '#3498db' : '#2563eb', width: 2 },
                                     },
                                 ]}
                                 layout={{
                                     title: 'Euler Yaw (ey)',
                                     paper_bgcolor: 'rgba(0, 0, 0, 0)',
                                     plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                                    xaxis: { title: 'Time', color: '#ffffff', gridcolor: '#666666' },
-                                    yaxis: { title: 'Yaw (degrees)', color: '#ffffff', gridcolor: '#666666' },
+                                    xaxis: { 
+                                        title: 'Time', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb',
+                                        tickangle: -45 
+                                    },
+                                    yaxis: { 
+                                        title: 'Yaw (degrees)', 
+                                        color: darkMode ? '#ffffff' : '#000000', 
+                                        gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                                    },
+                                    margin: { t: 40, b: 60, l: 60, r: 30 },
                                 }}
                                 style={{ width: '100%', height: '300px' }}
                             />
@@ -148,12 +195,12 @@ export default function RovlPage() {
                 </div>
 
                 {/* Latest Data Display */}
-                <div className="bg-gray-800 rounded-lg p-6 mt-6 shadow-lg border border-gray-700">
-                    <h2 className="text-lg font-semibold text-center mb-4 text-green-400">
+                <div className={`rounded-lg p-6 mt-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <h2 className={`text-lg font-semibold text-center mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                         Latest ROVL Data
                     </h2>
-                    <pre className="text-sm bg-gray-900 p-4 rounded-lg overflow-x-auto text-white border border-gray-700">
-                        {latestMessage ? JSON.stringify(latestMessage, null, 2) : 'No data received yet.'}
+                    <pre className={`text-sm p-4 rounded-lg overflow-x-auto border ${darkMode ? 'bg-gray-900 text-gray-300 border-gray-700' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                        {latestMessage ? latestMessage : 'No data received yet.'}
                     </pre>
                 </div>
 
@@ -161,7 +208,7 @@ export default function RovlPage() {
                 <div className="text-center mt-6">
                     <button
                         onClick={downloadCSV}
-                        className="bg-teal-400 text-white px-4 py-2 rounded shadow hover:bg-teal-500"
+                        className={`px-6 py-2 ${darkMode ? 'bg-teal-400 hover:bg-teal-500' : 'bg-teal-600 hover:bg-teal-700'} text-white rounded-lg shadow-md font-medium transition-colors`}
                     >
                         Download CSV
                     </button>
@@ -170,6 +217,3 @@ export default function RovlPage() {
         </div>
     );
 }
-
-
-

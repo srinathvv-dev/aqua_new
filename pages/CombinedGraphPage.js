@@ -189,12 +189,12 @@ const initializeRovlWebSocket = (setRovlData) => {
  * @function SensorPlot
  * @brief Enhanced plot component with safe data handling
  */
-function SensorPlot({ title, data, timestamps, titleColor, markerColor }) {
+function SensorPlot({ title, data, timestamps, titleColor, markerColor, darkMode }) {
   const secondsTimestamps = convertTimestampsToSeconds(timestamps);
   const currentValue = data.length > 0 ? data[data.length - 1] : null;
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
       <h2 className="text-lg font-semibold text-center mb-4" style={{ color: titleColor }}>
         {title}
       </h2>
@@ -212,15 +212,15 @@ function SensorPlot({ title, data, timestamps, titleColor, markerColor }) {
           plot_bgcolor: 'rgba(0,0,0,0)',
           xaxis: { 
             title: 'Time (s)', 
-            color: '#ffffff',
-            gridcolor: '#333333',
-            zerolinecolor: '#666666'
+            color: darkMode ? '#ffffff' : '#000000',
+            gridcolor: darkMode ? '#333333' : '#E5E7EB',
+            zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
           },
           yaxis: { 
             title: 'Value', 
-            color: '#ffffff',
-            gridcolor: '#333333',
-            zerolinecolor: '#666666'
+            color: darkMode ? '#ffffff' : '#000000',
+            gridcolor: darkMode ? '#333333' : '#E5E7EB',
+            zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
           },
           margin: { t: 30, b: 50, l: 60, r: 30 },
           hovermode: 'closest',
@@ -232,8 +232,8 @@ function SensorPlot({ title, data, timestamps, titleColor, markerColor }) {
         useResizeHandler
         style={{ width: '100%', height: '200px' }}
       />
-      <div className="mt-4 p-2 bg-gray-700 rounded text-center">
-        <p className="text-sm text-gray-300">Current Value:</p>
+      <div className={`mt-4 p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
         <p className="text-lg font-mono" style={{ color: markerColor }}>
           {formatCurrentValue(currentValue)}
         </p>
@@ -242,7 +242,7 @@ function SensorPlot({ title, data, timestamps, titleColor, markerColor }) {
   );
 }
 
-function DvlSensorGroup({ dvlData, dvlTimestamps }) {
+function DvlSensorGroup({ dvlData, dvlTimestamps, darkMode }) {
   const downloadCSV = () => {
     let csvContent = 'Timestamp,X Velocity,Y Velocity,Z Velocity,Altitude,Valid\n';
     dvlTimestamps.forEach((timestamp, index) => {
@@ -261,14 +261,14 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 col-span-1 md:col-span-3">
+    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} col-span-1 md:col-span-3`}>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-center text-orange-400">
+        <h2 className={`text-lg font-semibold text-center ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
           DVL Sensor Data
         </h2>
         <button
           onClick={downloadCSV}
-          className="bg-teal-400 text-white px-3 py-1 rounded shadow hover:bg-teal-500 text-sm"
+          className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
         >
           Download CSV
         </button>
@@ -276,7 +276,7 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* X Velocity Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: dvlTimestamps,
@@ -292,30 +292,30 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Velocity (m/s)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-orange-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
               {formatCurrentValue(dvlData[dvlData.length - 1]?.x)}
             </p>
           </div>
         </div>
 
         {/* Y Velocity Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: dvlTimestamps,
@@ -331,30 +331,30 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Velocity (m/s)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-orange-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
               {formatCurrentValue(dvlData[dvlData.length - 1]?.y)}
             </p>
           </div>
         </div>
 
         {/* Z Velocity Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: dvlTimestamps,
@@ -370,30 +370,30 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Velocity (m/s)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-orange-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
               {formatCurrentValue(dvlData[dvlData.length - 1]?.z)}
             </p>
           </div>
         </div>
 
         {/* Altitude Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: dvlTimestamps,
@@ -409,23 +409,23 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Altitude (m)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-orange-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
               {formatCurrentValue(dvlData[dvlData.length - 1]?.altitude)}
             </p>
           </div>
@@ -433,9 +433,9 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
       </div>
 
       {/* Status Display */}
-      <div className="mt-4 p-4 bg-gray-700 rounded-lg">
+      <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
         <div className="flex justify-between items-center">
-          <h3 className="text-md font-semibold text-green-400">
+          <h3 className={`text-md font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
             DVL Status
           </h3>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -451,7 +451,7 @@ function DvlSensorGroup({ dvlData, dvlTimestamps }) {
   );
 }
 
-function RovlSensorGroup({ rovlData }) {
+function RovlSensorGroup({ rovlData, darkMode }) {
   const downloadCSV = () => {
     let csvContent = 'Timestamp,Apparent Bearing,Slant Range,Euler Yaw\n';
     rovlData.timestamps.forEach((timestamp, index) => {
@@ -469,14 +469,14 @@ function RovlSensorGroup({ rovlData }) {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 col-span-1 md:col-span-3">
+    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} col-span-1 md:col-span-3`}>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-center text-purple-400">
+        <h2 className={`text-lg font-semibold text-center ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
           ROVL Sensor Data
         </h2>
         <button
           onClick={downloadCSV}
-          className="bg-teal-400 text-white px-3 py-1 rounded shadow hover:bg-teal-500 text-sm"
+          className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
         >
           Download CSV
         </button>
@@ -484,7 +484,7 @@ function RovlSensorGroup({ rovlData }) {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Apparent Bearing Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: rovlData.timestamps,
@@ -500,30 +500,30 @@ function RovlSensorGroup({ rovlData }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Bearing (degrees)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-teal-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-teal-300' : 'text-teal-500'}`}>
               {formatCurrentValue(rovlData.abValues[rovlData.abValues.length - 1])}
             </p>
           </div>
         </div>
 
         {/* Slant Range Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: rovlData.timestamps,
@@ -539,30 +539,30 @@ function RovlSensorGroup({ rovlData }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Range (meters)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-red-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-red-300' : 'text-red-500'}`}>
               {formatCurrentValue(rovlData.srValues[rovlData.srValues.length - 1])}
             </p>
           </div>
         </div>
 
         {/* Euler Yaw Graph */}
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
           <Plot
             data={[{
               x: rovlData.timestamps,
@@ -578,23 +578,23 @@ function RovlSensorGroup({ rovlData }) {
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
                 title: 'Time', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               yaxis: { 
                 title: 'Yaw (degrees)', 
-                color: '#ffffff',
-                gridcolor: '#333333',
-                zerolinecolor: '#666666'
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
             style={{ width: '100%', height: '200px' }}
           />
-          <div className="mt-2 p-2 bg-gray-600 rounded text-center">
-            <p className="text-sm text-gray-300">Current Value:</p>
-            <p className="text-lg font-mono text-blue-300">
+          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
+            <p className={`text-lg font-mono ${darkMode ? 'text-blue-300' : 'text-blue-500'}`}>
               {formatCurrentValue(rovlData.eyValues[rovlData.eyValues.length - 1])}
             </p>
           </div>
@@ -602,11 +602,11 @@ function RovlSensorGroup({ rovlData }) {
       </div>
 
       {/* Latest Data Display */}
-      <div className="mt-4 p-4 bg-gray-700 rounded-lg">
-        <h3 className="text-md font-semibold text-center mb-2 text-green-400">
+      <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <h3 className={`text-md font-semibold text-center mb-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
           Latest ROVL Message
         </h3>
-        <pre className="text-xs bg-gray-800 p-3 rounded overflow-x-auto text-gray-200">
+        <pre className={`text-xs p-3 rounded overflow-x-auto ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-200 text-gray-800'}`}>
           {rovlData.latestMessage || 'No data received yet.'}
         </pre>
       </div>
@@ -638,6 +638,12 @@ export default function CombinedGraphPage() {
     latestMessage: null
   });
 
+  const [darkMode, setDarkMode] = useState(true);
+
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+  };
+
   useEffect(() => {
     const wsConnections = [
       initializeAhrsWebSocket(setRollData, setPitchData, setYawData, setAhrsTimestamps),
@@ -651,15 +657,25 @@ export default function CombinedGraphPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 md:p-8 transition-colors duration-200`}>
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-blue-500">
-            Underwater Vehicle Sensor Dashboard
-          </h1>
-          <p className="mt-2 text-gray-400">
-            Real-time monitoring of all vehicle systems
-          </p>
+        <header className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className={`text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${darkMode ? 'from-teal-400 to-blue-500' : 'from-teal-600 to-blue-600'}`}>
+                Underwater Vehicle Sensor Dashboard
+              </h1>
+              <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Real-time monitoring of all vehicle systems
+              </p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+            >
+              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -668,49 +684,62 @@ export default function CombinedGraphPage() {
             data={rollData} 
             timestamps={ahrsTimestamps} 
             titleColor="#FF6B6B" 
-            markerColor="#FF6B6B" 
+            markerColor="#FF6B6B"
+            darkMode={darkMode}
           />
           <SensorPlot 
             title="Pitch" 
             data={pitchData} 
             timestamps={ahrsTimestamps} 
             titleColor="#4ECDC4" 
-            markerColor="#4ECDC4" 
+            markerColor="#4ECDC4"
+            darkMode={darkMode}
           />
           <SensorPlot 
             title="Yaw" 
             data={yawData} 
             timestamps={ahrsTimestamps} 
             titleColor="#1D8CF8" 
-            markerColor="#1D8CF8" 
+            markerColor="#1D8CF8"
+            darkMode={darkMode}
           />
           <SensorPlot 
             title="Depth (Bar30)" 
             data={depthData} 
             timestamps={bar30Timestamps} 
             titleColor="#FFC107" 
-            markerColor="#FFC107" 
+            markerColor="#FFC107"
+            darkMode={darkMode}
           />
           <SensorPlot 
             title="Battery 1 Voltage" 
             data={batteryData.map(d => d.battery1)} 
             timestamps={batteryTimestamps} 
             titleColor="#FFD700" 
-            markerColor="#FFD700" 
+            markerColor="#FFD700"
+            darkMode={darkMode}
           />
           <SensorPlot 
             title="Battery 2 Voltage" 
             data={batteryData.map(d => d.battery2)} 
             timestamps={batteryTimestamps} 
             titleColor="#32CD32" 
-            markerColor="#32CD32" 
+            markerColor="#32CD32"
+            darkMode={darkMode}
           />
           
           {/* DVL Sensor Group - spans all columns */}
-          <DvlSensorGroup dvlData={dvlData} dvlTimestamps={dvlTimestamps} />
+          <DvlSensorGroup 
+            dvlData={dvlData} 
+            dvlTimestamps={dvlTimestamps} 
+            darkMode={darkMode}
+          />
           
           {/* ROVL Sensor Group - spans all columns */}
-          <RovlSensorGroup rovlData={rovlData} />
+          <RovlSensorGroup 
+            rovlData={rovlData} 
+            darkMode={darkMode}
+          />
         </div>
       </div>
     </div>

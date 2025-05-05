@@ -15,6 +15,11 @@ export default function Bar30Page() {
   const [allPressureData, setAllPressureData] = useState([]);
   const [allTimestamps, setAllTimestamps] = useState([]);
   const [rawData, setRawData] = useState(null);
+  const [darkMode, setDarkMode] = useState(true);
+
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+  };
 
   useEffect(() => {
     const ws = createRosWebSocket("/depth_impact", (message) => {
@@ -79,33 +84,41 @@ export default function Bar30Page() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-8 transition-colors duration-200`}>
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-semibold mb-10 text-center text-teal-400">
-          Depth Impact Sensor Monitoring
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className={`text-4xl font-semibold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+            Depth Impact Sensor Monitoring
+          </h1>
+          <button
+            onClick={toggleTheme}
+            className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+          >
+            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
+        </div>
 
         {/* Raw Data Container */}
         {rawData && (
-          <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 mb-8">
-            <h2 className="text-lg font-semibold text-center mb-4 text-yellow-400">
+          <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} mb-8`}>
+            <h2 className={`text-lg font-semibold text-center mb-4 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
               Latest Raw Data
             </h2>
             <table className="table-auto w-full text-left text-sm">
               <thead>
-                <tr className="text-gray-400">
-                  <th className="px-4 py-2 border-b border-gray-600">Timestamp</th>
-                  <th className="px-4 py-2 border-b border-gray-600">Depth (meters)</th>
-                  <th className="px-4 py-2 border-b border-gray-600">Temperature (°C)</th>
-                  <th className="px-4 py-2 border-b border-gray-600">Pressure (mbar)</th>
+                <tr className={darkMode ? "text-gray-400" : "text-gray-600"}>
+                  <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Timestamp</th>
+                  <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Depth (meters)</th>
+                  <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Temperature (°C)</th>
+                  <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Pressure (mbar)</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="text-white hover:bg-gray-700">
-                  <td className="px-4 py-2 border-b border-gray-600">{rawData.timestamp}</td>
-                  <td className="px-4 py-2 border-b border-gray-600">{rawData.Depth.toFixed(4)}</td>
-                  <td className="px-4 py-2 border-b border-gray-600">{rawData.Temperature.toFixed(2)}</td>
-                  <td className="px-4 py-2 border-b border-gray-600">{rawData.Pressure.toFixed(2)}</td>
+                <tr className={darkMode ? "text-white hover:bg-gray-700" : "hover:bg-gray-100"}>
+                  <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.timestamp}</td>
+                  <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Depth.toFixed(4)}</td>
+                  <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Temperature.toFixed(2)}</td>
+                  <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Pressure.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -116,7 +129,7 @@ export default function Bar30Page() {
         <div className="flex justify-center mb-8">
           <button
             onClick={downloadCSV}
-            className="px-6 py-2 bg-teal-500 hover:bg-teal-400 text-white rounded-lg shadow-md font-semibold transition-colors duration-200"
+            className={`px-6 py-2 ${darkMode ? 'bg-teal-500 hover:bg-teal-400' : 'bg-teal-600 hover:bg-teal-500'} text-white rounded-lg shadow-md font-semibold transition-colors duration-200`}
           >
             Download CSV
           </button>
@@ -127,29 +140,32 @@ export default function Bar30Page() {
           {/* Depth Graph */}
           <GraphContainer
             title="Depth (m)"
-            color="#4ECDC4"
+            color={darkMode ? "#4ECDC4" : "#0d9488"}
             timestamps={timestamps}
             data={depthData}
             yAxisLabel="Depth (meters)"
             unit="m"
+            darkMode={darkMode}
           />
           {/* Temperature Graph */}
           <GraphContainer
             title="Temperature (°C)"
-            color="#FF6B6B"
+            color={darkMode ? "#FF6B6B" : "#dc2626"}
             timestamps={timestamps}
             data={temperatureData}
             yAxisLabel="Temperature (°C)"
             unit="°C"
+            darkMode={darkMode}
           />
           {/* Pressure Graph */}
           <GraphContainer
             title="Pressure (mbar)"
-            color="#1D8CF8"
+            color={darkMode ? "#1D8CF8" : "#2563eb"}
             timestamps={timestamps}
             data={pressureData}
             yAxisLabel="Pressure (mbar)"
             unit="mbar"
+            darkMode={darkMode}
           />
         </div>
       </div>
@@ -162,14 +178,14 @@ export default function Bar30Page() {
  * @param {object} props - The component props.
  * @returns {JSX.Element} A graph component.
  */
-function GraphContainer({ title, color, timestamps, data, yAxisLabel, unit }) {
+function GraphContainer({ title, color, timestamps, data, yAxisLabel, unit, darkMode }) {
   // Convert timestamps to relative seconds for better x-axis display
   const relativeTimes = timestamps.length > 0 
     ? timestamps.map((t, i) => i) 
     : [];
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
+    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
       <h2 className="text-lg font-semibold text-center mb-4" style={{ color }}>
         {title}
       </h2>
@@ -189,26 +205,26 @@ function GraphContainer({ title, color, timestamps, data, yAxisLabel, unit }) {
           plot_bgcolor: "rgba(0, 0, 0, 0)",
           xaxis: {
             title: "Time (samples)",
-            color: "#ffffff",
-            gridcolor: "#666666",
-            tickcolor: "#ffffff",
-            tickfont: { color: "#ffffff" },
+            color: darkMode ? "#ffffff" : "#000000",
+            gridcolor: darkMode ? "#666666" : "#e5e7eb",
+            tickcolor: darkMode ? "#ffffff" : "#000000",
+            tickfont: { color: darkMode ? "#ffffff" : "#000000" },
             range: [0, 50], // Show last 50 samples
           },
           yaxis: {
             title: yAxisLabel,
-            color: "#ffffff",
-            gridcolor: "#666666",
-            tickcolor: "#ffffff",
-            tickfont: { color: "#ffffff" },
+            color: darkMode ? "#ffffff" : "#000000",
+            gridcolor: darkMode ? "#666666" : "#e5e7eb",
+            tickcolor: darkMode ? "#ffffff" : "#000000",
+            tickfont: { color: darkMode ? "#ffffff" : "#000000" },
           },
           margin: { t: 40, b: 50, l: 60, r: 20 },
         }}
         useResizeHandler
         style={{ width: "100%", height: "300px" }}
       />
-      <div className="mt-4 p-2 bg-gray-700 rounded text-center">
-        <p className="text-sm text-gray-300">Current Value:</p>
+      <div className={`mt-4 p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
         <p className="text-lg font-mono" style={{ color }}>
           {data.length > 0 ? `${data[data.length - 1].toFixed(2)} ${unit}` : "N/A"}
         </p>
