@@ -1,6 +1,6 @@
 /**
  * @file CombinedGraphPage.js
- * @brief Enhanced component for displaying combined sensor data with proper error handling
+ * @brief Enhanced component with sensor selection functionality
  */
 
 import { useEffect, useState } from 'react';
@@ -48,14 +48,10 @@ const formatCurrentValue = (value) => {
 const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsTimestamps) => {
   const ahrsWs = createRosWebSocket('/ahrs', (message) => {
     try {
-      // For Float64MultiArray, the data is in message.data array
       const dataArray = message.data || [];
-      
-      // Parse the orientation data (assuming [heading, pitch, roll] order)
-      const roll = dataArray[2] || 0;  // Roll is third element
-      const pitch = dataArray[1] || 0; // Pitch is second element
-      const yaw = dataArray[0] || 0;   // Heading/Yaw is first element
-      
+      const roll = dataArray[2] || 0;
+      const pitch = dataArray[1] || 0;
+      const yaw = dataArray[0] || 0;
       const timestamp = new Date().toLocaleTimeString();
 
       setRollData(prev => [...prev.slice(-49), roll]);
@@ -72,10 +68,8 @@ const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsT
 const initializeBar30WebSocket = (setDepthData, setBar30Timestamps) => {
   const bar30Ws = createRosWebSocket('/depth_impact', (message) => {
     try {
-      // For Float64MultiArray, data is in message.data array
-      // Assuming array contains [depth, temperature, pressure]
       const dataArray = message.data || [];
-      const depth = dataArray[0] || 0;  // First value is depth
+      const depth = dataArray[0] || 0;
       
       setDepthData(prev => [...prev.slice(-49), depth]);
       setBar30Timestamps(prev => [...prev.slice(-49), new Date().toLocaleTimeString()]);
@@ -107,10 +101,7 @@ const initializeBatteryWebSocket = (setBatteryData, setBatteryTimestamps) => {
 const initializeDvlWebSocket = (setDvlData, setDvlTimestamps) => {
   const dvlWs = createRosWebSocket('/dvl/data', (message) => {
     try {
-      // Parse the raw data if it's a string
       const rawData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
-      
-      // Extract the velocity data
       const velocityData = {
         x: rawData.velocity?.x || 0,
         y: rawData.velocity?.y || 0,
@@ -614,6 +605,134 @@ function RovlSensorGroup({ rovlData, darkMode }) {
   );
 }
 
+function SensorSelectionPanel({ 
+  selectedSensors, 
+  toggleSensor, 
+  darkMode,
+  isSidebarOpen,
+  toggleSidebar 
+}) {
+  const sensorGroups = [
+    {
+      name: "Orientation",
+      sensors: [
+        { id: 'roll', name: 'Roll', color: '#FF6B6B' },
+        { id: 'pitch', name: 'Pitch', color: '#4ECDC4' },
+        { id: 'yaw', name: 'Yaw', color: '#1D8CF8' }
+      ]
+    },
+    {
+      name: "Environmental",
+      sensors: [
+        { id: 'depth', name: 'Depth (Bar30)', color: '#FFC107' }
+      ]
+    },
+    {
+      name: "Power",
+      sensors: [
+        { id: 'battery1', name: 'Battery 1', color: '#FFD700' },
+        { id: 'battery2', name: 'Battery 2', color: '#32CD32' }
+      ]
+    },
+    {
+      name: "Navigation",
+      sensors: [
+        { id: 'dvl', name: 'DVL System', color: '#FF4500' },
+        { id: 'rovl', name: 'ROVL System', color: '#1abc9c' }
+      ]
+    }
+  ];
+
+  return (
+    <div className={`fixed md:relative z-20 transition-all duration-300 ease-in-out 
+      ${isSidebarOpen ? 'left-0' : '-left-64 md:left-0'} 
+      ${darkMode ? 'bg-gray-800' : 'bg-white'} 
+      h-full w-64 border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'} 
+      shadow-lg`}
+    >
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+            Sensor Selection
+          </h2>
+          <button 
+            onClick={toggleSidebar}
+            className={`md:hidden p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+          >
+            {isSidebarOpen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+            )}
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {sensorGroups.map(group => (
+            <div key={group.name}>
+              <h3 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {group.name}
+              </h3>
+              <div className="space-y-2">
+                {group.sensors.map(sensor => (
+                  <div 
+                    key={sensor.id} 
+                    className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                    onClick={() => toggleSensor(sensor.id)}
+                  >
+                    <div 
+                      className={`w-4 h-4 rounded-full mr-3`}
+                      style={{ backgroundColor: sensor.color }}
+                    ></div>
+                    <span className={`flex-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {sensor.name}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={selectedSensors.includes(sensor.id)}
+                      onChange={() => toggleSensor(sensor.id)}
+                      className={`form-checkbox h-5 w-5 rounded ${darkMode ? 'text-teal-400 bg-gray-700 border-gray-600' : 'text-teal-600 border-gray-300'}`}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6">
+          <button
+            onClick={() => {
+              const allSensors = sensorGroups.flatMap(group => group.sensors.map(s => s.id));
+              if (selectedSensors.length === allSensors.length) {
+                // If all are selected, deselect all
+                selectedSensors.forEach(sensor => toggleSensor(sensor));
+              } else {
+                // Otherwise select all
+                allSensors.forEach(sensor => {
+                  if (!selectedSensors.includes(sensor)) {
+                    toggleSensor(sensor);
+                  }
+                });
+              }
+            }}
+            className={`w-full py-2 px-4 rounded-lg font-medium ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+          >
+            {selectedSensors.length === sensorGroups.flatMap(group => group.sensors.map(s => s.id)).length 
+              ? 'Deselect All' 
+              : 'Select All'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CombinedGraphPage() {
   // State initialization without TypeScript syntax
   const [rollData, setRollData] = useState([]);
@@ -639,9 +758,25 @@ export default function CombinedGraphPage() {
   });
 
   const [darkMode, setDarkMode] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedSensors, setSelectedSensors] = useState([
+    'roll', 'pitch', 'yaw', 'depth', 'battery1', 'battery2', 'dvl', 'rovl'
+  ]);
 
   const toggleTheme = () => {
     setDarkMode(!darkMode);
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const toggleSensor = (sensorId) => {
+    setSelectedSensors(prev => 
+      prev.includes(sensorId) 
+        ? prev.filter(id => id !== sensorId)
+        : [...prev, sensorId]
+    );
   };
 
   useEffect(() => {
@@ -656,90 +791,172 @@ export default function CombinedGraphPage() {
     return () => wsConnections.forEach(ws => ws?.close());
   }, []);
 
-  return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 md:p-8 transition-colors duration-200`}>
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${darkMode ? 'from-teal-400 to-blue-500' : 'from-teal-600 to-blue-600'}`}>
-                Underwater Vehicle Sensor Dashboard
-              </h1>
-              <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Real-time monitoring of all vehicle systems
-              </p>
-            </div>
-            <button
-              onClick={toggleTheme}
-              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
-            >
-              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-            </button>
-          </div>
-        </header>
+  // Check if any sensor group is selected
+  const hasSelectedSensors = selectedSensors.length > 0;
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <SensorPlot 
-            title="Roll" 
-            data={rollData} 
-            timestamps={ahrsTimestamps} 
-            titleColor="#FF6B6B" 
-            markerColor="#FF6B6B"
-            darkMode={darkMode}
-          />
-          <SensorPlot 
-            title="Pitch" 
-            data={pitchData} 
-            timestamps={ahrsTimestamps} 
-            titleColor="#4ECDC4" 
-            markerColor="#4ECDC4"
-            darkMode={darkMode}
-          />
-          <SensorPlot 
-            title="Yaw" 
-            data={yawData} 
-            timestamps={ahrsTimestamps} 
-            titleColor="#1D8CF8" 
-            markerColor="#1D8CF8"
-            darkMode={darkMode}
-          />
-          <SensorPlot 
-            title="Depth (Bar30)" 
-            data={depthData} 
-            timestamps={bar30Timestamps} 
-            titleColor="#FFC107" 
-            markerColor="#FFC107"
-            darkMode={darkMode}
-          />
-          <SensorPlot 
-            title="Battery 1 Voltage" 
-            data={batteryData.map(d => d.battery1)} 
-            timestamps={batteryTimestamps} 
-            titleColor="#FFD700" 
-            markerColor="#FFD700"
-            darkMode={darkMode}
-          />
-          <SensorPlot 
-            title="Battery 2 Voltage" 
-            data={batteryData.map(d => d.battery2)} 
-            timestamps={batteryTimestamps} 
-            titleColor="#32CD32" 
-            markerColor="#32CD32"
-            darkMode={darkMode}
-          />
-          
-          {/* DVL Sensor Group - spans all columns */}
-          <DvlSensorGroup 
-            dvlData={dvlData} 
-            dvlTimestamps={dvlTimestamps} 
-            darkMode={darkMode}
-          />
-          
-          {/* ROVL Sensor Group - spans all columns */}
-          <RovlSensorGroup 
-            rovlData={rovlData} 
-            darkMode={darkMode}
-          />
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-200`}>
+      <div className="flex">
+        {/* Sensor Selection Panel */}
+        <SensorSelectionPanel 
+          selectedSensors={selectedSensors} 
+          toggleSensor={toggleSensor} 
+          darkMode={darkMode}
+          isSidebarOpen={isSidebarOpen}
+          toggleSidebar={toggleSidebar}
+        />
+
+        {/* Main Content */}
+        <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-64 md:ml-0' : 'ml-0'}`}>
+          <div className={`p-4 md:p-8 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <header className="mb-8">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className={`text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${darkMode ? 'from-teal-400 to-blue-500' : 'from-teal-600 to-blue-600'}`}>
+                    Underwater Vehicle Sensor Dashboard
+                  </h1>
+                  <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Real-time monitoring of selected vehicle systems
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={toggleSidebar}
+                    className={`md:hidden p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={toggleTheme}
+                    className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    {darkMode ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {!hasSelectedSensors && (
+              <div className={`rounded-lg p-8 text-center ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <h2 className="text-xl font-semibold mb-2">No Sensors Selected</h2>
+                <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Please select at least one sensor from the sidebar to display data.
+                </p>
+                <button
+                  onClick={toggleSidebar}
+                  className={`px-4 py-2 rounded-lg font-medium ${darkMode ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'bg-teal-500 hover:bg-teal-600 text-white'}`}
+                >
+                  Open Sensor Selection
+                </button>
+              </div>
+            )}
+
+            {hasSelectedSensors && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Roll */}
+                {selectedSensors.includes('roll') && (
+                  <SensorPlot 
+                    title="Roll" 
+                    data={rollData} 
+                    timestamps={ahrsTimestamps} 
+                    titleColor="#FF6B6B" 
+                    markerColor="#FF6B6B"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* Pitch */}
+                {selectedSensors.includes('pitch') && (
+                  <SensorPlot 
+                    title="Pitch" 
+                    data={pitchData} 
+                    timestamps={ahrsTimestamps} 
+                    titleColor="#4ECDC4" 
+                    markerColor="#4ECDC4"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* Yaw */}
+                {selectedSensors.includes('yaw') && (
+                  <SensorPlot 
+                    title="Yaw" 
+                    data={yawData} 
+                    timestamps={ahrsTimestamps} 
+                    titleColor="#1D8CF8" 
+                    markerColor="#1D8CF8"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* Depth */}
+                {selectedSensors.includes('depth') && (
+                  <SensorPlot 
+                    title="Depth (Bar30)" 
+                    data={depthData} 
+                    timestamps={bar30Timestamps} 
+                    titleColor="#FFC107" 
+                    markerColor="#FFC107"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* Battery 1 */}
+                {selectedSensors.includes('battery1') && (
+                  <SensorPlot 
+                    title="Battery 1 Voltage" 
+                    data={batteryData.map(d => d.battery1)} 
+                    timestamps={batteryTimestamps} 
+                    titleColor="#FFD700" 
+                    markerColor="#FFD700"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* Battery 2 */}
+                {selectedSensors.includes('battery2') && (
+                  <SensorPlot 
+                    title="Battery 2 Voltage" 
+                    data={batteryData.map(d => d.battery2)} 
+                    timestamps={batteryTimestamps} 
+                    titleColor="#32CD32" 
+                    markerColor="#32CD32"
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* DVL Sensor Group */}
+                {selectedSensors.includes('dvl') && (
+                  <DvlSensorGroup 
+                    dvlData={dvlData} 
+                    dvlTimestamps={dvlTimestamps} 
+                    darkMode={darkMode}
+                  />
+                )}
+
+                {/* ROVL Sensor Group */}
+                {selectedSensors.includes('rovl') && (
+                  <RovlSensorGroup 
+                    rovlData={rovlData} 
+                    darkMode={darkMode}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

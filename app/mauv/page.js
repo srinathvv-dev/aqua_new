@@ -26,7 +26,7 @@ import {
   IconSun,
   IconMoon
 } from "@tabler/icons-react";
-import { createRosWebSocket } from "../lib/ros-websocket";
+import { createRosWebSocket } from "../../lib/ros-websocket";
 
 // Sensor configurations with corresponding icons
 const sensors = [
