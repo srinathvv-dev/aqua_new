@@ -1,6 +1,6 @@
 /**
  * @file CombinedGraphPage.js
- * @brief Enhanced component with sensor selection functionality
+ * @brief Enhanced component with sensor selection functionality and full-length graphs
  */
 
 import { useEffect, useState } from 'react';
@@ -9,11 +9,6 @@ import { createRosWebSocket } from '../lib/ros-websocket';
 
 // Dynamic import for Plotly.js to avoid SSR issues
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
-
-// Convert timestamps to seconds
-const convertTimestampsToSeconds = (timestamps) => {
-  return timestamps.map((_, index) => index);
-};
 
 /**
  * @function formatCurrentValue
@@ -54,10 +49,10 @@ const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsT
       const yaw = dataArray[0] || 0;
       const timestamp = new Date().toLocaleTimeString();
 
-      setRollData(prev => [...prev.slice(-49), roll]);
-      setPitchData(prev => [...prev.slice(-49), pitch]);
-      setYawData(prev => [...prev.slice(-49), yaw]);
-      setAhrsTimestamps(prev => [...prev.slice(-49), timestamp]);
+      setRollData(prev => [...prev, roll]);
+      setPitchData(prev => [...prev, pitch]);
+      setYawData(prev => [...prev, yaw]);
+      setAhrsTimestamps(prev => [...prev, timestamp]);
     } catch (error) {
       console.error('AHRS Data Error:', error.message);
     }
@@ -71,8 +66,8 @@ const initializeBar30WebSocket = (setDepthData, setBar30Timestamps) => {
       const dataArray = message.data || [];
       const depth = dataArray[0] || 0;
       
-      setDepthData(prev => [...prev.slice(-49), depth]);
-      setBar30Timestamps(prev => [...prev.slice(-49), new Date().toLocaleTimeString()]);
+      setDepthData(prev => [...prev, depth]);
+      setBar30Timestamps(prev => [...prev, new Date().toLocaleTimeString()]);
     } catch (error) {
       console.error('Bar30 Data Error:', error.message);
     }
@@ -89,8 +84,8 @@ const initializeBatteryWebSocket = (setBatteryData, setBatteryTimestamps) => {
         battery2: Number(battery2) || 0
       };
       
-      setBatteryData(prev => [...prev.slice(-49), voltages]);
-      setBatteryTimestamps(prev => [...prev.slice(-49), new Date().toLocaleTimeString()]);
+      setBatteryData(prev => [...prev, voltages]);
+      setBatteryTimestamps(prev => [...prev, new Date().toLocaleTimeString()]);
     } catch (error) {
       console.error('Battery Data Error:', error.message);
     }
@@ -112,8 +107,8 @@ const initializeDvlWebSocket = (setDvlData, setDvlTimestamps) => {
 
       const timestamp = new Date().toLocaleTimeString();
       
-      setDvlData(prev => [...prev.slice(-49), velocityData]);
-      setDvlTimestamps(prev => [...prev.slice(-49), timestamp]);
+      setDvlData(prev => [...prev, velocityData]);
+      setDvlTimestamps(prev => [...prev, timestamp]);
     } catch (error) {
       console.error('DVL Data Error:', error.message);
     }
@@ -155,10 +150,10 @@ const initializeRovlWebSocket = (setRovlData) => {
             });
             
             return {
-              timestamps: [...prev.timestamps.slice(-49), currentTime],
-              abValues: [...prev.abValues.slice(-49), parsedData.ab],
-              srValues: [...prev.srValues.slice(-49), parsedData.sr],
-              eyValues: [...prev.eyValues.slice(-49), parsedData.ey],
+              timestamps: [...prev.timestamps, currentTime],
+              abValues: [...prev.abValues, parsedData.ab],
+              srValues: [...prev.srValues, parsedData.sr],
+              eyValues: [...prev.eyValues, parsedData.ey],
               latestMessage: parsedData.raw
             };
           });
@@ -178,56 +173,98 @@ const initializeRovlWebSocket = (setRovlData) => {
 
 /**
  * @function SensorPlot
- * @brief Enhanced plot component with safe data handling
+ * @brief Enhanced plot component with full-length horizontal graphs
  */
 function SensorPlot({ title, data, timestamps, titleColor, markerColor, darkMode }) {
-  const secondsTimestamps = convertTimestampsToSeconds(timestamps);
+  // Create time array starting from 0 with 1 second intervals
+  const timeArray = Array.from({ length: data.length }, (_, i) => i);
   const currentValue = data.length > 0 ? data[data.length - 1] : null;
 
   return (
-    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <h2 className="text-lg font-semibold text-center mb-4" style={{ color: titleColor }}>
-        {title}
-      </h2>
-      <Plot
-        data={[{
-          x: secondsTimestamps,
-          y: data,
-          type: 'scatter',
-          mode: 'lines+markers',
-          marker: { color: markerColor },
-          line: { color: markerColor, width: 2 },
-        }]}
-        layout={{
-          paper_bgcolor: 'rgba(0,0,0,0)',
-          plot_bgcolor: 'rgba(0,0,0,0)',
-          xaxis: { 
-            title: 'Time (s)', 
-            color: darkMode ? '#ffffff' : '#000000',
-            gridcolor: darkMode ? '#333333' : '#E5E7EB',
-            zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-          },
-          yaxis: { 
-            title: 'Value', 
-            color: darkMode ? '#ffffff' : '#000000',
-            gridcolor: darkMode ? '#333333' : '#E5E7EB',
-            zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-          },
-          margin: { t: 30, b: 50, l: 60, r: 30 },
-          hovermode: 'closest',
-        }}
-        config={{
-          displayModeBar: false,
-          responsive: true
-        }}
-        useResizeHandler
-        style={{ width: '100%', height: '200px' }}
-      />
-      <div className={`mt-4 p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-        <p className="text-lg font-mono" style={{ color: markerColor }}>
-          {formatCurrentValue(currentValue)}
-        </p>
+    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold" style={{ color: titleColor }}>
+          {title}
+        </h2>
+        <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+          <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Samples: {data.length}
+          </span>
+        </div>
+      </div>
+      
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <Plot
+            data={[{
+              x: timeArray,
+              y: data,
+              type: 'scatter',
+              mode: 'lines+markers',
+              marker: { color: markerColor, size: 4 },
+              line: { color: markerColor, width: 1 },
+            }]}
+            layout={{
+              width: 1200,
+              height: 300,
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0)',
+              xaxis: { 
+                title: 'Time (s)', 
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true,
+                autorange: true
+              },
+              yaxis: { 
+                title: 'Value', 
+                color: darkMode ? '#ffffff' : '#000000',
+                gridcolor: darkMode ? '#333333' : '#E5E7EB',
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                autorange: true
+              },
+              margin: { t: 30, b: 50, l: 60, r: 30 },
+              hovermode: 'closest',
+            }}
+            config={{
+              displayModeBar: true,
+              responsive: true,
+              scrollZoom: true
+            }}
+            useResizeHandler
+          />
+        </div>
+        
+        <div className={`w-full md:w-48 p-4 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+          <div className="text-center mb-4">
+            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value</p>
+            <p className="text-2xl font-mono font-bold" style={{ color: markerColor }}>
+              {formatCurrentValue(currentValue)}
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <div>
+              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>First Value</p>
+              <p className="font-mono">
+                {formatCurrentValue(data[0])}
+              </p>
+            </div>
+            <div>
+              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Max Value</p>
+              <p className="font-mono">
+                {formatCurrentValue(Math.max(...data))}
+              </p>
+            </div>
+            <div>
+              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Min Value</p>
+              <p className="font-mono">
+                {formatCurrentValue(Math.min(...data))}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -251,180 +288,250 @@ function DvlSensorGroup({ dvlData, dvlTimestamps, darkMode }) {
     document.body.removeChild(link);
   };
 
+  // Create time arrays for each plot
+  const timeArray = Array.from({ length: dvlData.length }, (_, i) => i);
+
   return (
-    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} col-span-1 md:col-span-3`}>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className={`text-lg font-semibold text-center ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-lg font-semibold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
           DVL Sensor Data
         </h2>
-        <button
-          onClick={downloadCSV}
-          className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-        >
-          Download CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Samples: {dvlData.length}
+            </span>
+          </div>
+          <button
+            onClick={downloadCSV}
+            className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+          >
+            Download CSV
+          </button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="space-y-6">
         {/* X Velocity Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            X Velocity (m/s)
+          </h3>
           <Plot
             data={[{
-              x: dvlTimestamps,
+              x: timeArray,
               y: dvlData.map(d => d.x),
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#FF4500' },
-              line: { color: '#FF4500', width: 2 },
+              marker: { color: '#FF4500', size: 4 },
+              line: { color: '#FF4500', width: 1 },
             }]}
             layout={{
-              title: 'X Velocity',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Velocity (m/s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
-              {formatCurrentValue(dvlData[dvlData.length - 1]?.x)}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(dvlData[0]?.x)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.x)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.x)))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.x)))}
+            </span>
           </div>
         </div>
 
         {/* Y Velocity Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Y Velocity (m/s)
+          </h3>
           <Plot
             data={[{
-              x: dvlTimestamps,
+              x: timeArray,
               y: dvlData.map(d => d.y),
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#FF8C00' },
-              line: { color: '#FF8C00', width: 2 },
+              marker: { color: '#FF8C00', size: 4 },
+              line: { color: '#FF8C00', width: 1 },
             }]}
             layout={{
-              title: 'Y Velocity',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Velocity (m/s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
-              {formatCurrentValue(dvlData[dvlData.length - 1]?.y)}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(dvlData[0]?.y)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.y)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.y)))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.y)))}
+            </span>
           </div>
         </div>
 
         {/* Z Velocity Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Z Velocity (m/s)
+          </h3>
           <Plot
             data={[{
-              x: dvlTimestamps,
+              x: timeArray,
               y: dvlData.map(d => d.z),
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#FF6347' },
-              line: { color: '#FF6347', width: 2 },
+              marker: { color: '#FF6347', size: 4 },
+              line: { color: '#FF6347', width: 1 },
             }]}
             layout={{
-              title: 'Z Velocity',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Velocity (m/s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
-              {formatCurrentValue(dvlData[dvlData.length - 1]?.z)}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(dvlData[0]?.z)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.z)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.z)))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.z)))}
+            </span>
           </div>
         </div>
 
         {/* Altitude Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Altitude (m)
+          </h3>
           <Plot
             data={[{
-              x: dvlTimestamps,
+              x: timeArray,
               y: dvlData.map(d => d.altitude),
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#FFA500' },
-              line: { color: '#FFA500', width: 2 },
+              marker: { color: '#FFA500', size: 4 },
+              line: { color: '#FFA500', width: 1 },
             }]}
             layout={{
-              title: 'Altitude',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Altitude (m)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-orange-300' : 'text-orange-500'}`}>
-              {formatCurrentValue(dvlData[dvlData.length - 1]?.altitude)}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(dvlData[0]?.altitude)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.altitude)}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.altitude)))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.altitude)))}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Status Display */}
-      <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+      <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
         <div className="flex justify-between items-center">
           <h3 className={`text-md font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
             DVL Status
@@ -459,141 +566,196 @@ function RovlSensorGroup({ rovlData, darkMode }) {
     document.body.removeChild(link);
   };
 
+  // Create time array for all plots
+  const timeArray = Array.from({ length: rovlData.timestamps.length }, (_, i) => i);
+
   return (
-    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} col-span-1 md:col-span-3`}>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className={`text-lg font-semibold text-center ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-lg font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
           ROVL Sensor Data
         </h2>
-        <button
-          onClick={downloadCSV}
-          className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-        >
-          Download CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Samples: {rovlData.timestamps.length}
+            </span>
+          </div>
+          <button
+            onClick={downloadCSV}
+            className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+          >
+            Download CSV
+          </button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-6">
         {/* Apparent Bearing Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Apparent Bearing (degrees)
+          </h3>
           <Plot
             data={[{
-              x: rovlData.timestamps,
+              x: timeArray,
               y: rovlData.abValues,
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#1abc9c' },
-              line: { color: '#1abc9c', width: 2 },
+              marker: { color: '#1abc9c', size: 4 },
+              line: { color: '#1abc9c', width: 1 },
             }]}
             layout={{
-              title: 'Apparent Bearing',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Bearing (degrees)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-teal-300' : 'text-teal-500'}`}>
-              {formatCurrentValue(rovlData.abValues[rovlData.abValues.length - 1])}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(rovlData.abValues[0])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(rovlData.abValues[rovlData.abValues.length - 1])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...rovlData.abValues))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...rovlData.abValues))}
+            </span>
           </div>
         </div>
 
         {/* Slant Range Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Slant Range (meters)
+          </h3>
           <Plot
             data={[{
-              x: rovlData.timestamps,
+              x: timeArray,
               y: rovlData.srValues,
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#e74c3c' },
-              line: { color: '#e74c3c', width: 2 },
+              marker: { color: '#e74c3c', size: 4 },
+              line: { color: '#e74c3c', width: 1 },
             }]}
             layout={{
-              title: 'Slant Range',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Range (meters)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-red-300' : 'text-red-500'}`}>
-              {formatCurrentValue(rovlData.srValues[rovlData.srValues.length - 1])}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(rovlData.srValues[0])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(rovlData.srValues[rovlData.srValues.length - 1])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...rovlData.srValues))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...rovlData.srValues))}
+            </span>
           </div>
         </div>
 
         {/* Euler Yaw Graph */}
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+        <div>
+          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Euler Yaw (degrees)
+          </h3>
           <Plot
             data={[{
-              x: rovlData.timestamps,
+              x: timeArray,
               y: rovlData.eyValues,
               type: 'scatter',
               mode: 'lines+markers',
-              marker: { color: '#3498db' },
-              line: { color: '#3498db', width: 2 },
+              marker: { color: '#3498db', size: 4 },
+              line: { color: '#3498db', width: 1 },
             }]}
             layout={{
-              title: 'Euler Yaw',
+              width: 1200,
+              height: 200,
               paper_bgcolor: 'rgba(0,0,0,0)',
               plot_bgcolor: 'rgba(0,0,0,0)',
               xaxis: { 
-                title: 'Time', 
+                title: 'Time (s)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
+                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
+                showgrid: true
               },
               yaxis: { 
-                title: 'Yaw (degrees)', 
                 color: darkMode ? '#ffffff' : '#000000',
                 gridcolor: darkMode ? '#333333' : '#E5E7EB',
                 zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
               },
               margin: { t: 30, b: 50, l: 60, r: 30 },
             }}
-            style={{ width: '100%', height: '200px' }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
           />
-          <div className={`mt-2 p-2 rounded text-center ${darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-            <p className={`text-lg font-mono ${darkMode ? 'text-blue-300' : 'text-blue-500'}`}>
-              {formatCurrentValue(rovlData.eyValues[rovlData.eyValues.length - 1])}
-            </p>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              First: {formatCurrentValue(rovlData.eyValues[0])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Current: {formatCurrentValue(rovlData.eyValues[rovlData.eyValues.length - 1])}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Max: {formatCurrentValue(Math.max(...rovlData.eyValues))}
+            </span>
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Min: {formatCurrentValue(Math.min(...rovlData.eyValues))}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Latest Data Display */}
-      <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+      <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
         <h3 className={`text-md font-semibold text-center mb-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
           Latest ROVL Message
         </h3>
@@ -865,7 +1027,7 @@ export default function CombinedGraphPage() {
             )}
 
             {hasSelectedSensors && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-6">
                 {/* Roll */}
                 {selectedSensors.includes('roll') && (
                   <SensorPlot 
@@ -962,3 +1124,4 @@ export default function CombinedGraphPage() {
     </div>
   );
 }
+

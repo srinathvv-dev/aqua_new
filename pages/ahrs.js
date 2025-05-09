@@ -188,6 +188,7 @@ export default function AHRSPage() {
             data={rollData}
             yAxisLabel="Roll (Deg)"
             darkMode={darkMode}
+            yAxisRange={[-15, 15]}
           />
           <GraphContainer
             title="Pitch (Deg)"
@@ -196,6 +197,7 @@ export default function AHRSPage() {
             data={pitchData}
             yAxisLabel="Pitch (Deg)"
             darkMode={darkMode}
+            yAxisRange={[-15, 15]}
           />
           <GraphContainer
             title="Yaw (Deg)"
@@ -204,6 +206,7 @@ export default function AHRSPage() {
             data={yawData}
             yAxisLabel="Yaw (Deg)"
             darkMode={darkMode}
+            yAxisRange={[0, 360]}
           />
         </div>
       </div>
@@ -211,8 +214,8 @@ export default function AHRSPage() {
   );
 }
 
-// Reusable Graph Component
-function GraphContainer({ title, color, timestamps, data, yAxisLabel, darkMode }) {
+// Reusable Graph Component with updated y-axis ranges
+function GraphContainer({ title, color, timestamps, data, yAxisLabel, darkMode, yAxisRange }) {
   // Convert timestamps to relative seconds
   const relativeTimes = timestamps.length > 0 
     ? timestamps.map((t, i) => i) 
@@ -244,12 +247,19 @@ function GraphContainer({ title, color, timestamps, data, yAxisLabel, darkMode }
           yaxis: { 
             title: yAxisLabel, 
             color: darkMode ? "#ffffff" : "#000000",
-            gridcolor: darkMode ? "#333333" : "#E5E7EB"
+            gridcolor: darkMode ? "#333333" : "#E5E7EB",
+            range: yAxisRange,
+            fixedrange: true // Prevents zooming/panning on y-axis
           },
           margin: { t: 30, b: 50, l: 60, r: 30 },
         }}
         useResizeHandler
         style={{ width: "100%", height: "300px" }}
+        config={{
+          displayModeBar: true,
+          responsive: true,
+          scrollZoom: false,
+        }}
       />
       <div className={`mt-4 p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
         <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
