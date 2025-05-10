@@ -1,482 +1,3 @@
-// import { useEffect, useState } from 'react';
-// import dynamic from 'next/dynamic';
-// import { createRosWebSocket } from '../lib/ros-websocket';
-
-// const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
-
-// function ErrorBoundary({ children }) {
-//   const [hasError, setHasError] = useState(false);
-
-//   useEffect(() => {
-//     const errorHandler = (error) => {
-//       console.error('Error caught by boundary:', error);
-//       setHasError(true);
-//     };
-//     window.addEventListener('error', errorHandler);
-//     return () => window.removeEventListener('error', errorHandler);
-//   }, []);
-
-//   if (hasError) {
-//     return <div className="text-red-500 p-4">Error displaying DVL data</div>;
-//   }
-
-//   return children;
-// }
-
-// export default function DvlPage() {
-//   // Velocity states
-//   const [vx, setVx] = useState([]);
-//   const [vy, setVy] = useState([]);
-//   const [vz, setVz] = useState([]);
-  
-//   // Additional DVL metrics
-//   const [altitude, setAltitude] = useState([]);
-//   const [fom, setFom] = useState([]);
-  
-//   // Timestamps and raw data
-//   const [timestamps, setTimestamps] = useState([]);
-//   const [rawData, setRawData] = useState(null);
-//   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
-  
-//   // Complete data history for CSV export
-//   const [allData, setAllData] = useState([]);
-  
-//   // Current values display
-//   const [currentValues, setCurrentValues] = useState({
-//     vx: null,
-//     vy: null,
-//     vz: null,
-//     altitude: null,
-//     fom: null,
-//     velocityValid: false,
-//     status: null
-//   });
-
-//   useEffect(() => {
-//     console.log('Initializing DVL WebSocket connection...');
-//     setConnectionStatus('Connecting to WebSocket...');
-
-//     const ws = createRosWebSocket('/dvl/data', (message) => {
-//       try {
-//         console.log('Raw message received:', message);
-        
-//         // Enhanced data parsing
-//         let data;
-//         if (typeof message.data === 'string') {
-//           try {
-//             data = JSON.parse(message.data);
-//           } catch (e) {
-//             // Handle case where message.data might be a JSON string within a string
-//             try {
-//               data = JSON.parse(JSON.parse(message.data));
-//             } catch (e2) {
-//               console.error('Double JSON parse failed, using raw:', message.data);
-//               data = message.data;
-//             }
-//           }
-//         } else {
-//           data = message.data?.msg || message.data;
-//         }
-
-//         console.log('Parsed DVL data:', data);
-//         setRawData(JSON.stringify(data, null, 2));
-//         setConnectionStatus('Connected - Receiving data');
-
-//         // Current timestamp
-//         const currentTime = new Date().toLocaleTimeString([], { 
-//           hour: '2-digit', 
-//           minute: '2-digit',
-//           second: '2-digit',
-//           fractionalSecondDigits: 3
-//         });
-
-//         // Safely extract values with defaults
-//         const velocityX = data.velocity?.x ?? data.velocity?.velocity_x ?? 0;
-//         const velocityY = data.velocity?.y ?? data.velocity?.velocity_y ?? 0;
-//         const velocityZ = data.velocity?.z ?? data.velocity?.velocity_z ?? 0;
-//         const currentAltitude = data.altitude ?? data.distance ?? 0;
-//         const currentFom = data.fom ?? data.figure_of_merit ?? 0;
-//         const isValid = data.velocity_valid ?? data.valid ?? false;
-//         const currentStatus = data.status ?? 0;
-
-//         // Update velocity data (last 50 points)
-//         setVx(prev => [...prev.slice(-49), velocityX]);
-//         setVy(prev => [...prev.slice(-49), velocityY]);
-//         setVz(prev => [...prev.slice(-49), velocityZ]);
-        
-//         // Update other metrics
-//         setAltitude(prev => [...prev.slice(-49), currentAltitude]);
-//         setFom(prev => [...prev.slice(-49), currentFom]);
-        
-//         // Update timestamps
-//         setTimestamps(prev => [...prev.slice(-49), currentTime]);
-        
-//         // Store all data for CSV export
-//         setAllData(prev => [...prev, {
-//           timestamp: currentTime,
-//           vx: velocityX,
-//           vy: velocityY,
-//           vz: velocityZ,
-//           altitude: currentAltitude,
-//           fom: currentFom,
-//           velocityValid: isValid,
-//           status: currentStatus
-//         }]);
-        
-//         // Update current values
-//         setCurrentValues({
-//           vx: velocityX,
-//           vy: velocityY,
-//           vz: velocityZ,
-//           altitude: currentAltitude,
-//           fom: currentFom,
-//           velocityValid: isValid,
-//           status: currentStatus
-//         });
-
-//       } catch (error) {
-//         console.error('Error processing DVL data:', error);
-//         setConnectionStatus(`Error: ${error.message}`);
-//       }
-//     });
-
-//     ws.onerror = (error) => {
-//       console.error('WebSocket error:', error);
-//       setConnectionStatus('WebSocket error - See console');
-//     };
-
-//     ws.onclose = () => {
-//       console.log('WebSocket closed');
-//       setConnectionStatus('Disconnected - Attempting to reconnect...');
-//     };
-
-//     return () => {
-//       console.log('Cleaning up WebSocket');
-//       ws.close();
-//     };
-//   }, []);
-
-//   // Function to download CSV
-//   const downloadCSV = () => {
-//     if (allData.length === 0) {
-//       alert('No data available to export');
-//       return;
-//     }
-
-//     const csvHeader = "Timestamp,Vx (m/s),Vy (m/s),Vz (m/s),Altitude (m),FOM,Velocity Valid,Status\n";
-//     const csvRows = allData.map(item => {
-//       return `"${item.timestamp}",${item.vx?.toExponential(6) || '0'},${item.vy?.toExponential(6) || '0'},${item.vz?.toExponential(6) || '0'},${item.altitude?.toFixed(6) || '0'},${item.fom?.toExponential(6) || '0'},${item.velocityValid},${item.status}`;
-//     });
-
-//     const csvContent = csvHeader + csvRows.join("\n");
-//     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-//     const url = URL.createObjectURL(blob);
-
-//     const link = document.createElement("a");
-//     link.href = url;
-//     link.download = `DVL_Data_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-//     document.body.appendChild(link);
-//     link.click();
-//     document.body.removeChild(link);
-//     URL.revokeObjectURL(url);
-//   };
-
-//   // Function to get status color
-//   const getStatusColor = (valid) => {
-//     return valid ? 'bg-green-500' : 'bg-red-500';
-//   };
-
-//   // Function to get connection status color
-//   const getConnectionStatusColor = () => {
-//     if (connectionStatus.includes('Error') || connectionStatus.includes('Disconnected')) {
-//       return 'text-red-500';
-//     } else if (connectionStatus.includes('Connected')) {
-//       return 'text-green-500';
-//     }
-//     return 'text-yellow-500';
-//   };
-
-//   return (
-//     <ErrorBoundary>
-//       <div className="min-h-screen bg-gray-900 text-white p-8">
-//         <div className="max-w-7xl mx-auto">
-//           <h1 className="text-4xl font-semibold mb-2 text-center text-teal-400">
-//             DVL Data Monitoring
-//           </h1>
-//           <div className={`text-center mb-6 ${getConnectionStatusColor()}`}>
-//             {connectionStatus}
-//           </div>
-          
-//           {/* Current Values Overview */}
-//           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-//             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-//               <h3 className="text-sm text-gray-400">X Velocity</h3>
-//               <p className="text-xl font-mono text-blue-400">
-//                 {currentValues.vx !== null ? currentValues.vx.toExponential(4) + ' m/s' : 'N/A'}
-//               </p>
-//             </div>
-//             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-//               <h3 className="text-sm text-gray-400">Y Velocity</h3>
-//               <p className="text-xl font-mono text-green-400">
-//                 {currentValues.vy !== null ? currentValues.vy.toExponential(4) + ' m/s' : 'N/A'}
-//               </p>
-//             </div>
-//             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-//               <h3 className="text-sm text-gray-400">Z Velocity</h3>
-//               <p className="text-xl font-mono text-red-400">
-//                 {currentValues.vz !== null ? currentValues.vz.toExponential(4) + ' m/s' : 'N/A'}
-//               </p>
-//             </div>
-//             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-//               <h3 className="text-sm text-gray-400">Status</h3>
-//               <div className="flex items-center">
-//                 <span className={`h-3 w-3 rounded-full mr-2 ${getStatusColor(currentValues.velocityValid)}`}></span>
-//                 <span>{currentValues.velocityValid ? 'Valid' : 'Invalid'}</span>
-//                 <span className="ml-2 text-xs opacity-70">(Code: {currentValues.status})</span>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Rest of your component remains the same */}
-//           {/* Velocity Graphs */}
-//           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-//             {/* X Velocity */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <div className="flex justify-between items-center mb-4">
-//                 <h2 className="text-lg font-semibold text-blue-400">
-//                   X Velocity (m/s)
-//                 </h2>
-//                 <span className="text-sm text-gray-400">
-//                   {timestamps[timestamps.length - 1] || 'No data'}
-//                 </span>
-//               </div>
-//               <Plot
-//                 data={[{
-//                   x: timestamps,
-//                   y: vx,
-//                   type: 'scatter',
-//                   mode: 'lines+markers',
-//                   marker: { color: '#1D8CF8', size: 5 },
-//                   line: { color: '#1D8CF8', width: 2 },
-//                 }]}
-//                 layout={{
-//                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   xaxis: {
-//                     title: 'Time',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     tickangle: -45,
-//                   },
-//                   yaxis: {
-//                     title: 'Velocity (m/s)',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     zerolinecolor: '#666666',
-//                     type: 'linear',
-//                     exponentformat: 'e',
-//                   },
-//                   margin: { t: 30, b: 70, l: 60, r: 30 },
-//                 }}
-//                 useResizeHandler
-//                 style={{ width: '100%', height: '300px' }}
-//               />
-//             </div>
-
-//             {/* Y Velocity */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <div className="flex justify-between items-center mb-4">
-//                 <h2 className="text-lg font-semibold text-green-400">
-//                   Y Velocity (m/s)
-//                 </h2>
-//                 <span className="text-sm text-gray-400">
-//                   {timestamps[timestamps.length - 1] || 'No data'}
-//                 </span>
-//               </div>
-//               <Plot
-//                 data={[{
-//                   x: timestamps,
-//                   y: vy,
-//                   type: 'scatter',
-//                   mode: 'lines+markers',
-//                   marker: { color: '#4ECDC4', size: 5 },
-//                   line: { color: '#4ECDC4', width: 2 },
-//                 }]}
-//                 layout={{
-//                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   xaxis: {
-//                     title: 'Time',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     tickangle: -45,
-//                   },
-//                   yaxis: {
-//                     title: 'Velocity (m/s)',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     zerolinecolor: '#666666',
-//                     type: 'linear',
-//                     exponentformat: 'e',
-//                   },
-//                   margin: { t: 30, b: 70, l: 60, r: 30 },
-//                 }}
-//                 useResizeHandler
-//                 style={{ width: '100%', height: '300px' }}
-//               />
-//             </div>
-
-//             {/* Z Velocity */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <div className="flex justify-between items-center mb-4">
-//                 <h2 className="text-lg font-semibold text-red-400">
-//                   Z Velocity (m/s)
-//                 </h2>
-//                 <span className="text-sm text-gray-400">
-//                   {timestamps[timestamps.length - 1] || 'No data'}
-//                 </span>
-//               </div>
-//               <Plot
-//                 data={[{
-//                   x: timestamps,
-//                   y: vz,
-//                   type: 'scatter',
-//                   mode: 'lines+markers',
-//                   marker: { color: '#FF6B6B', size: 5 },
-//                   line: { color: '#FF6B6B', width: 2 },
-//                 }]}
-//                 layout={{
-//                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   xaxis: {
-//                     title: 'Time',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     tickangle: -45,
-//                   },
-//                   yaxis: {
-//                     title: 'Velocity (m/s)',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     zerolinecolor: '#666666',
-//                     type: 'linear',
-//                     exponentformat: 'e',
-//                   },
-//                   margin: { t: 30, b: 70, l: 60, r: 30 },
-//                 }}
-//                 useResizeHandler
-//                 style={{ width: '100%', height: '300px' }}
-//               />
-//             </div>
-//           </div>
-
-//           {/* Additional Metrics */}
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-//             {/* Altitude Graph */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <h2 className="text-lg font-semibold mb-4 text-yellow-400">
-//                 Altitude (m)
-//               </h2>
-//               <Plot
-//                 data={[{
-//                   x: timestamps,
-//                   y: altitude,
-//                   type: 'scatter',
-//                   mode: 'lines+markers',
-//                   marker: { color: '#FFD700', size: 5 },
-//                   line: { color: '#FFD700', width: 2 },
-//                 }]}
-//                 layout={{
-//                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   xaxis: {
-//                     title: 'Time',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     tickangle: -45,
-//                   },
-//                   yaxis: {
-//                     title: 'Altitude (m)',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                   },
-//                   margin: { t: 30, b: 70, l: 60, r: 30 },
-//                 }}
-//                 useResizeHandler
-//                 style={{ width: '100%', height: '300px' }}
-//               />
-//             </div>
-
-//             {/* Figure of Merit Graph */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <h2 className="text-lg font-semibold mb-4 text-purple-400">
-//                 Figure of Merit
-//               </h2>
-//               <Plot
-//                 data={[{
-//                   x: timestamps,
-//                   y: fom,
-//                   type: 'scatter',
-//                   mode: 'lines+markers',
-//                   marker: { color: '#9B59B6', size: 5 },
-//                   line: { color: '#9B59B6', width: 2 },
-//                 }]}
-//                 layout={{
-//                   paper_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   plot_bgcolor: 'rgba(0, 0, 0, 0)',
-//                   xaxis: {
-//                     title: 'Time',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                     tickangle: -45,
-//                   },
-//                   yaxis: {
-//                     title: 'FOM',
-//                     color: '#ffffff',
-//                     gridcolor: '#666666',
-//                   },
-//                   margin: { t: 30, b: 70, l: 60, r: 30 },
-//                 }}
-//                 useResizeHandler
-//                 style={{ width: '100%', height: '300px' }}
-//               />
-//             </div>
-//           </div>
-
-//           {/* Data Section */}
-//           <div className="grid grid-cols-1 gap-6">
-//             {/* Controls */}
-//             <div className="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 flex justify-center">
-//               <button
-//                 onClick={downloadCSV}
-//                 className="px-6 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg shadow-md font-medium transition-colors"
-//                 disabled={allData.length === 0}
-//               >
-//                 {allData.length === 0 ? 'No Data to Export' : 'Export Data (CSV)'}
-//               </button>
-//             </div>
-
-//             {/* Raw Data Display */}
-//             <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-//               <div className="flex justify-between items-center mb-4">
-//                 <h2 className="text-lg font-semibold text-yellow-400">
-//                   Raw DVL Data
-//                 </h2>
-//                 <span className="text-xs text-gray-400">
-//                   Last update: {timestamps[timestamps.length - 1] || 'Never'}
-//                 </span>
-//               </div>
-//               <pre className="text-xs bg-gray-900 p-4 rounded overflow-x-auto text-gray-300 max-h-60">
-//                 {rawData || 'Waiting for data...'}
-//               </pre>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </ErrorBoundary>
-//   );
-// }
-
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 
@@ -552,7 +73,7 @@ export default function DvlPage() {
     dvl: {
       vx: [], vy: [], vz: [],
       altitude: [], fom: [],
-      timestamps: [],
+      elapsedTimes: [],
       current: {
         vx: 0, vy: 0, vz: 0,
         altitude: 0, fom: 0,
@@ -562,17 +83,17 @@ export default function DvlPage() {
     },
     ahrs: {
       data: [],
-      timestamps: [],
+      elapsedTimes: [],
       current: []
     },
     heading: {
       value: 0,
-      timestamps: []
+      elapsedTimes: []
     },
     battery: {
       voltage1: 0,
       voltage2: 0,
-      timestamps: []
+      elapsedTimes: []
     }
   });
   
@@ -580,6 +101,7 @@ export default function DvlPage() {
   const [allData, setAllData] = useState([]);
   const [rawData, setRawData] = useState('Waiting for data...');
   const [darkMode, setDarkMode] = useState(true);
+  const [startTime, setStartTime] = useState(null);
 
   const toggleTheme = () => {
     setDarkMode(!darkMode);
@@ -596,12 +118,15 @@ export default function DvlPage() {
         const parsed = JSON.parse(message.data);
         const topic = parsed.topic;
         const messageData = parsed.data;
-        const currentTime = new Date().toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          second: '2-digit',
-          fractionalSecondDigits: 3
-        });
+        const currentTime = new Date();
+
+        // Set start time on first data point
+        if (!startTime) {
+          setStartTime(currentTime);
+        }
+
+        // Calculate elapsed time in seconds
+        const elapsedTime = startTime ? (currentTime - startTime) / 1000 : 0;
 
         setRawData(JSON.stringify(parsed, null, 2));
 
@@ -612,12 +137,12 @@ export default function DvlPage() {
               ...prev,
               dvl: {
                 ...prev.dvl,
-                vx: [...prev.dvl.vx.slice(-49), messageData.velocity?.x || 0],
-                vy: [...prev.dvl.vy.slice(-49), messageData.velocity?.y || 0],
-                vz: [...prev.dvl.vz.slice(-49), messageData.velocity?.z || 0],
-                altitude: [...prev.dvl.altitude.slice(-49), messageData.altitude || 0],
-                fom: [...prev.dvl.fom.slice(-49), messageData.fom || 0],
-                timestamps: [...prev.dvl.timestamps.slice(-49), currentTime],
+                vx: [...prev.dvl.vx, messageData.velocity?.x || 0],
+                vy: [...prev.dvl.vy, messageData.velocity?.y || 0],
+                vz: [...prev.dvl.vz, messageData.velocity?.z || 0],
+                altitude: [...prev.dvl.altitude, messageData.altitude || 0],
+                fom: [...prev.dvl.fom, messageData.fom || 0],
+                elapsedTimes: [...prev.dvl.elapsedTimes, elapsedTime],
                 current: {
                   vx: messageData.velocity?.x || 0,
                   vy: messageData.velocity?.y || 0,
@@ -635,8 +160,8 @@ export default function DvlPage() {
             setData(prev => ({
               ...prev,
               ahrs: {
-                data: [...prev.ahrs.data.slice(-49), messageData.data || []],
-                timestamps: [...prev.ahrs.timestamps.slice(-49), currentTime],
+                data: [...prev.ahrs.data, messageData.data || []],
+                elapsedTimes: [...prev.ahrs.elapsedTimes, elapsedTime],
                 current: messageData.data || []
               }
             }));
@@ -647,7 +172,7 @@ export default function DvlPage() {
               ...prev,
               heading: {
                 value: messageData.data || 0,
-                timestamps: [...prev.heading.timestamps.slice(-49), currentTime]
+                elapsedTimes: [...prev.heading.elapsedTimes, elapsedTime]
               }
             }));
             break;
@@ -659,7 +184,7 @@ export default function DvlPage() {
               battery: {
                 voltage1: topic === '/battery_voltage_1' ? messageData.data : prev.battery.voltage1,
                 voltage2: topic === '/battery_voltage_2' ? messageData.data : prev.battery.voltage2,
-                timestamps: [...prev.battery.timestamps.slice(-49), currentTime]
+                elapsedTimes: [...prev.battery.elapsedTimes, elapsedTime]
               }
             }));
             break;
@@ -691,17 +216,17 @@ export default function DvlPage() {
       console.log('Cleaning up WebSocket');
       ws.close();
     };
-  }, []);
+  }, [startTime]);
 
   const downloadCSV = () => {
-    if (allData.length === 0) {
+    if (data.dvl.elapsedTimes.length === 0) {
       alert('No data available to export');
       return;
     }
 
-    const csvHeader = "Timestamp,Vx (m/s),Vy (m/s),Vz (m/s),Altitude (m),FOM,Velocity Valid,Status\n";
-    const csvRows = allData.map(item => {
-      return `"${item.timestamp}",${item.vx?.toExponential(6) || '0'},${item.vy?.toExponential(6) || '0'},${item.vz?.toExponential(6) || '0'},${item.altitude?.toFixed(6) || '0'},${item.fom?.toExponential(6) || '0'},${item.velocityValid},${item.status}`;
+    const csvHeader = "Elapsed Time (s),Vx (m/s),Vy (m/s),Vz (m/s),Altitude (m),FOM,Velocity Valid,Status\n";
+    const csvRows = data.dvl.elapsedTimes.map((time, index) => {
+      return `${time.toFixed(2)},${data.dvl.vx[index]?.toExponential(6) || '0'},${data.dvl.vy[index]?.toExponential(6) || '0'},${data.dvl.vz[index]?.toExponential(6) || '0'},${data.dvl.altitude[index]?.toFixed(6) || '0'},${data.dvl.fom[index]?.toExponential(6) || '0'},${index === data.dvl.elapsedTimes.length - 1 ? data.dvl.current.velocityValid : 'N/A'},${index === data.dvl.elapsedTimes.length - 1 ? data.dvl.current.status : 'N/A'}`;
     });
 
     const csvContent = csvHeader + csvRows.join("\n");
@@ -791,48 +316,95 @@ export default function DvlPage() {
             </div>
           </div>
 
-          {/* DVL Data Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Velocity Plots - Horizontal Arrangement */}
+          <div className="space-y-8 mb-8">
             {/* X Velocity */}
             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                  X Velocity
+                  X Velocity (m/s)
                 </h2>
                 <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  {formatValue(data.dvl.current.vx, 'm/s')}
+                  {formatValue(data.dvl.current.vx)}
                 </div>
-              </div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
                 data={[{
-                  x: data.dvl.timestamps,
+                  x: data.dvl.elapsedTimes,
                   y: data.dvl.vx,
                   type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: darkMode ? '#1D8CF8' : '#2563eb', size: 5 },
-                  line: { color: darkMode ? '#1D8CF8' : '#2563eb', width: 2 },
+                  mode: 'lines',
+                  line: { 
+                    color: darkMode ? '#1D8CF8' : '#2563eb', 
+                    width: 1.5,
+                    shape: 'linear'
+                  },
+                  connectgaps: true,
                 }]}
                 layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { 
-                    title: 'Time', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
-                    tickangle: -45 
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    range: [0, 1000], // 5 minutes
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60, // Show a tick every minute
                   },
-                  yaxis: { 
-                    title: 'Velocity (m/s)', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  yaxis: {
+                    title: "Velocity (m/s)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    fixedrange: true,
+                    range: [-2, 2] // Fixed range for velocity
                   },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
+                  hovermode: "x unified",
+                  showlegend: false,
+                }}
+                config={{
+                  displayModeBar: true,
+                  displaylogo: false,
+                  responsive: true,
+                  scrollZoom: true,
+                  modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
+                  modeBarButtonsToAdd: [
+                    {
+                      name: 'resetView',
+                      title: 'Reset View',
+                      icon: {
+                        width: 500,
+                        height: 600,
+                        path: 'M512 256A256 256 0 1 0 0 256a256 256 0 1 0 512 0zM231 127c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-71 71L376 232c13.3 0 24 10.7 24 24s-10.7 24-24 24l-182.1 0 71 71c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L119 273c-9.4-9.4-9.4-24.6 0-33.9L231 127z',
+                        transform: 'matrix(-1 0 0 1 0 0)'
+                      },
+                      click: function(gd) {
+                        Plotly.relayout(gd, {
+                          'xaxis.autorange': false,
+                          'xaxis.range': [0, 300],
+                          'yaxis.autorange': false,
+                          'yaxis.range': [-2, 2]
+                        });
+                      }
+                    }
+                  ]
                 }}
                 useResizeHandler
-                style={{ width: '100%', height: '250px' }}
+                style={{ width: "100%", height: "300px" }}
               />
             </div>
 
@@ -840,42 +412,62 @@ export default function DvlPage() {
             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                  Y Velocity
+                  Y Velocity (m/s)
                 </h2>
                 <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  {formatValue(data.dvl.current.vy, 'm/s')}
+                  {formatValue(data.dvl.current.vy)}
                 </div>
-              </div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
                 data={[{
-                  x: data.dvl.timestamps,
+                  x: data.dvl.elapsedTimes,
                   y: data.dvl.vy,
                   type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: darkMode ? '#4ECDC4' : '#0d9488', size: 5 },
-                  line: { color: darkMode ? '#4ECDC4' : '#0d9488', width: 2 },
+                  mode: 'lines',
+                  line: { 
+                    color: darkMode ? '#4ECDC4' : '#0d9488', 
+                    width: 1.5,
+                    shape: 'linear'
+                  },
+                  connectgaps: true,
                 }]}
                 layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { 
-                    title: 'Time', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
-                    tickangle: -45 
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    range: [0, 1000], // 5 minutes
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60, // Show a tick every minute
                   },
-                  yaxis: { 
-                    title: 'Velocity (m/s)', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  yaxis: {
+                    title: "Velocity (m/s)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    fixedrange: true,
+                    range: [-2, 2] // Fixed range for velocity
                   },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
+                  hovermode: "x unified",
+                  showlegend: false,
                 }}
                 useResizeHandler
-                style={{ width: '100%', height: '250px' }}
+                style={{ width: "100%", height: "300px" }}
               />
             </div>
 
@@ -883,88 +475,128 @@ export default function DvlPage() {
             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
-                  Z Velocity
+                  Z Velocity (m/s)
                 </h2>
                 <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  {formatValue(data.dvl.current.vz, 'm/s')}
+                  {formatValue(data.dvl.current.vz)}
                 </div>
-              </div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
                 data={[{
-                  x: data.dvl.timestamps,
+                  x: data.dvl.elapsedTimes,
                   y: data.dvl.vz,
                   type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: darkMode ? '#FF6B6B' : '#dc2626', size: 5 },
-                  line: { color: darkMode ? '#FF6B6B' : '#dc2626', width: 2 },
+                  mode: 'lines',
+                  line: { 
+                    color: darkMode ? '#FF6B6B' : '#dc2626', 
+                    width: 1.5,
+                    shape: 'linear'
+                  },
+                  connectgaps: true,
                 }]}
                 layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { 
-                    title: 'Time', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
-                    tickangle: -45 
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    range: [0, 1000], // 5 minutes
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60, // Show a tick every minute
                   },
-                  yaxis: { 
-                    title: 'Velocity (m/s)', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  yaxis: {
+                    title: "Velocity (m/s)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    fixedrange: true,
+                    range: [-2, 2] // Fixed range for velocity
                   },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
+                  hovermode: "x unified",
+                  showlegend: false,
                 }}
                 useResizeHandler
-                style={{ width: '100%', height: '250px' }}
+                style={{ width: "100%", height: "300px" }}
               />
             </div>
           </div>
 
-          {/* Additional DVL Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Altitude and FOM Plots - Horizontal Arrangement */}
+          <div className="space-y-8 mb-8">
             {/* Altitude */}
             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
                 <h2 className={`text-lg font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                  Altitude
+                  Altitude (m)
                 </h2>
                 <div className={`text-lg font-mono px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  {formatValue(data.dvl.current.altitude, 'm')}
+                  {formatValue(data.dvl.current.altitude)}
                 </div>
-              </div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
               </div>
               <Plot
                 data={[{
-                  x: data.dvl.timestamps,
+                  x: data.dvl.elapsedTimes,
                   y: data.dvl.altitude,
                   type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: darkMode ? '#FFD700' : '#ca8a04', size: 5 },
-                  line: { color: darkMode ? '#FFD700' : '#ca8a04', width: 2 },
+                  mode: 'lines',
+                  line: { 
+                    color: darkMode ? '#FFD700' : '#ca8a04', 
+                    width: 1.5,
+                    shape: 'linear'
+                  },
+                  connectgaps: true,
                 }]}
                 layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { 
-                    title: 'Time', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
-                    tickangle: -45 
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    range: [0, 1000], // 5 minutes
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60, // Show a tick every minute
                   },
-                  yaxis: { 
-                    title: 'Altitude (m)', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  yaxis: {
+                    title: "Altitude (m)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    fixedrange: true,
+                    range: [0, 100] // Fixed range for altitude
                   },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
+                  hovermode: "x unified",
+                  showlegend: false,
                 }}
                 useResizeHandler
-                style={{ width: '100%', height: '250px' }}
+                style={{ width: "100%", height: "300px" }}
               />
             </div>
 
@@ -978,36 +610,56 @@ export default function DvlPage() {
                   {formatValue(data.dvl.current.fom)}
                 </div>
               </div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'No data'}
-              </div>
               <Plot
                 data={[{
-                  x: data.dvl.timestamps,
+                  x: data.dvl.elapsedTimes,
                   y: data.dvl.fom,
                   type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: darkMode ? '#9B59B6' : '#7e22ce', size: 5 },
-                  line: { color: darkMode ? '#9B59B6' : '#7e22ce', width: 2 },
+                  mode: 'lines',
+                  line: { 
+                    color: darkMode ? '#9B59B6' : '#7e22ce', 
+                    width: 1.5,
+                    shape: 'linear'
+                  },
+                  connectgaps: true,
                 }]}
                 layout={{
-                  paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                  plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                  xaxis: { 
-                    title: 'Time', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb', 
-                    tickangle: -45 
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    range: [0, 1000], // 5 minutes
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60, // Show a tick every minute
                   },
-                  yaxis: { 
-                    title: 'FOM', 
-                    color: darkMode ? '#ffffff' : '#000000', 
-                    gridcolor: darkMode ? '#666666' : '#e5e7eb' 
+                  yaxis: {
+                    title: "FOM",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+                    linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+                    mirror: true,
+                    showline: true,
+                    zeroline: false,
+                    fixedrange: true,
+                    range: [0, 10] // Fixed range for FOM
                   },
-                  margin: { t: 10, b: 60, l: 60, r: 30 },
+                  hovermode: "x unified",
+                  showlegend: false,
                 }}
                 useResizeHandler
-                style={{ width: '100%', height: '250px' }}
+                style={{ width: "100%", height: "300px" }}
               />
             </div>
           </div>
@@ -1018,9 +670,9 @@ export default function DvlPage() {
               <button
                 onClick={downloadCSV}
                 className={`px-6 py-2 ${darkMode ? 'bg-teal-600 hover:bg-teal-500' : 'bg-teal-700 hover:bg-teal-600'} text-white rounded-lg shadow-md font-medium transition-colors`}
-                disabled={allData.length === 0}
+                disabled={data.dvl.elapsedTimes.length === 0}
               >
-                {allData.length === 0 ? 'No Data to Export' : 'Export Data (CSV)'}
+                {data.dvl.elapsedTimes.length === 0 ? 'No Data to Export' : 'Export Data (CSV)'}
               </button>
             </div>
 
@@ -1030,7 +682,7 @@ export default function DvlPage() {
                   Raw Data
                 </h2>
                 <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Last update: {data.dvl.timestamps[data.dvl.timestamps.length - 1] || 'Never'}
+                  Elapsed: {data.dvl.elapsedTimes.length > 0 ? `${data.dvl.elapsedTimes[data.dvl.elapsedTimes.length - 1].toFixed(1)}s` : 'N/A'}
                 </span>
               </div>
               <pre className={`text-xs p-4 rounded overflow-x-auto max-h-60 ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-800'}`}>
