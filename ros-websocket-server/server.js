@@ -142,7 +142,7 @@ function setupAllTopics(ws) {
     { name: '/ahrs', type: 'std_msgs/Float64MultiArray' },
     { name: '/an_device/Heading', type: 'std_msgs/Float32' },
     { name: '/depth_impact', type: 'std_msgs/Float64MultiArray' },
-    { name: '/battery_voltage_1', type: 'std_msgs/Float64' },
+    { name: '/battery_voltage', type: 'std_msgs/Float64' },
     { name: '/battery_voltage_2', type: 'std_msgs/Float64' },
     { name: '/dvl/data', type: 'waterlinked_a50_ros_driver/DVL' },
     { name: '/leak_topic', type: 'std_msgs/String' },

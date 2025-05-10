@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";                                                                                                                                  
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { createRosWebSocket } from "../lib/ros-websocket";
 
@@ -29,6 +29,8 @@ export default function AHRSPage() {
     yaw: 0 
   });
   const [darkMode, setDarkMode] = useState(true);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTimes, setElapsedTimes] = useState([]);
 
   // Toggle between light and dark theme
   const toggleTheme = () => {
@@ -49,17 +51,28 @@ export default function AHRSPage() {
           Roll: dataArray[2] || 0
         };
 
-        // Current time for x-axis (in seconds)
-        const currentTime = Math.floor(Date.now() / 1000);
+        const currentTime = new Date();
+        
+        // Set start time on first data point
+        if (!startTime) {
+          setStartTime(currentTime);
+        }
 
-        // Update graph data (keep last 200 points)
-        setTimestamps((prev) => [...prev.slice(-200), currentTime]);
-        setRollData((prev) => [...prev.slice(-200), parsedData.Roll]);
-        setPitchData((prev) => [...prev.slice(-200), parsedData.Pitch]);
-        setYawData((prev) => [...prev.slice(-200), parsedData.Heading]);
+        // Calculate elapsed time in seconds
+        const elapsedTime = startTime ? (currentTime - startTime) / 1000 : 0;
+
+        // Update graph data
+        setRollData((prev) => [...prev, parsedData.Roll]);
+        setPitchData((prev) => [...prev, parsedData.Pitch]);
+        setYawData((prev) => [...prev, parsedData.Heading]);
+        setElapsedTimes((prev) => [...prev, elapsedTime]);
 
         // Update raw data display
-        setRawData({ ...parsedData, timestamp: currentTime });
+        setRawData({ 
+          ...parsedData, 
+          timestamp: currentTime.toLocaleTimeString(),
+          elapsedTime: elapsedTime.toFixed(1)
+        });
         
         // Update 3D model orientation
         setOrientation({
@@ -73,13 +86,13 @@ export default function AHRSPage() {
     });
 
     return () => ws.close();
-  }, []);
+  }, [startTime]);
 
   // Function to download CSV data
   const downloadCSV = () => {
-    const csvHeader = "Timestamp,Roll (Deg),Pitch (Deg),Yaw (Deg)\n";
-    const csvRows = timestamps.map((timestamp, index) => {
-      return `${timestamp},${rollData[index]?.toFixed(2) || ""},${pitchData[index]?.toFixed(2) || ""},${yawData[index]?.toFixed(2) || ""}`;
+    const csvHeader = "Timestamp,Elapsed Time (s),Roll (Deg),Pitch (Deg),Yaw (Deg)\n";
+    const csvRows = elapsedTimes.map((elapsed, index) => {
+      return `${rawData.timestamp},${elapsed.toFixed(1)},${rollData[index]?.toFixed(2) || ""},${pitchData[index]?.toFixed(2) || ""},${yawData[index]?.toFixed(2) || ""}`;
     });
 
     const csvContent = csvHeader + csvRows.join("\n");
@@ -119,6 +132,7 @@ export default function AHRSPage() {
               <thead>
                 <tr className={darkMode ? "text-gray-400" : "text-gray-600"}>
                   <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Timestamp</th>
+                  <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Elapsed (s)</th>
                   <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Roll (Deg)</th>
                   <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Pitch (Deg)</th>
                   <th className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>Yaw (Deg)</th>
@@ -127,6 +141,7 @@ export default function AHRSPage() {
               <tbody>
                 <tr className={darkMode ? "text-white hover:bg-gray-700" : "hover:bg-gray-100"}>
                   <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.timestamp}</td>
+                  <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.elapsedTime}</td>
                   <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Roll.toFixed(2)}</td>
                   <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Pitch.toFixed(2)}</td>
                   <td className={`px-4 py-2 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>{rawData.Heading.toFixed(2)}</td>
@@ -179,34 +194,45 @@ export default function AHRSPage() {
           </button>
         </div>
 
-        {/* Graphs Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Horizontal Plots Section */}
+        <div className="space-y-8">
+          {/* Roll Graph */}
           <GraphContainer
-            title="Roll (Deg)"
+            title="Roll (Degrees)"
             color={darkMode ? "#FF6B6B" : "#EF4444"}
-            timestamps={timestamps}
+            timestamps={elapsedTimes}
             data={rollData}
             yAxisLabel="Roll (Deg)"
+            unit="°"
             darkMode={darkMode}
-            yAxisRange={[-15, 15]}
+            yRange={[-15, 15]}
+            xRange={[0, 300]}
           />
+          
+          {/* Pitch Graph */}
           <GraphContainer
-            title="Pitch (Deg)"
+            title="Pitch (Degrees)"
             color={darkMode ? "#4ECDC4" : "#14B8A6"}
-            timestamps={timestamps}
+            timestamps={elapsedTimes}
             data={pitchData}
             yAxisLabel="Pitch (Deg)"
+            unit="°"
             darkMode={darkMode}
-            yAxisRange={[-15, 15]}
+            yRange={[-15, 15]}
+            xRange={[0, 300]}
           />
+          
+          {/* Yaw Graph */}
           <GraphContainer
-            title="Yaw (Deg)"
+            title="Yaw (Degrees)"
             color={darkMode ? "#1D8CF8" : "#3B82F6"}
-            timestamps={timestamps}
+            timestamps={elapsedTimes}
             data={yawData}
             yAxisLabel="Yaw (Deg)"
+            unit="°"
             darkMode={darkMode}
-            yAxisRange={[0, 360]}
+            yRange={[0, 360]}
+            xRange={[0, 300]}
           />
         </div>
       </div>
@@ -214,59 +240,104 @@ export default function AHRSPage() {
   );
 }
 
-// Reusable Graph Component with updated y-axis ranges
-function GraphContainer({ title, color, timestamps, data, yAxisLabel, darkMode, yAxisRange }) {
-  // Convert timestamps to relative seconds
-  const relativeTimes = timestamps.length > 0 
-    ? timestamps.map((t, i) => i) 
-    : [];
-
+function GraphContainer({ title, color, timestamps, data, yAxisLabel, unit, darkMode, yRange, xRange }) {
   return (
     <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <h2 className="text-lg font-semibold text-center mb-4" style={{ color }}>
-        {title}
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold" style={{ color }}>
+          {title}
+        </h2>
+        <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+          <span className="font-mono" style={{ color }}>
+            {data.length > 0 ? `${data[data.length - 1].toFixed(2)} ${unit}` : "N/A"}
+          </span>
+        </div>
+      </div>
+      
       <Plot
-        data={[{
-          x: relativeTimes,
-          y: data,
-          type: "scatter",
-          mode: "lines+markers",
-          marker: { color, size: 6 },
-          line: { color, width: 2 },
-        }]}
+        data={[
+          {
+            x: timestamps,
+            y: data,
+            type: "scatter",
+            mode: "lines",
+            line: { 
+              color,
+              width: 1.5,
+              shape: 'linear'
+            },
+            connectgaps: true,
+          },
+        ]}
         layout={{
-          paper_bgcolor: "rgba(0,0,0,0)",
-          plot_bgcolor: "rgba(0,0,0,0)",
-          xaxis: { 
-            title: "Time (samples)", 
-            color: darkMode ? "#ffffff" : "#000000",
-            gridcolor: darkMode ? "#333333" : "#E5E7EB",
-            range: [0, 50]
+          paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+          plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+          margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+          autosize: true,
+          xaxis: {
+            title: "Time (seconds)",
+            showgrid: true,
+            gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+            color: darkMode ? '#D1D5DB' : '#4B5563',
+            tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+            linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+            mirror: true,
+            showline: true,
+            zeroline: false,
+            range: xRange,
+            fixedrange: true,
+            tick0: 0,
+            dtick: 60, // Show a tick every minute
           },
-          yaxis: { 
-            title: yAxisLabel, 
-            color: darkMode ? "#ffffff" : "#000000",
-            gridcolor: darkMode ? "#333333" : "#E5E7EB",
-            range: yAxisRange,
-            fixedrange: true // Prevents zooming/panning on y-axis
+          yaxis: {
+            title: yAxisLabel,
+            range: yRange,
+            fixedrange: true,
+            showgrid: true,
+            gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+            color: darkMode ? '#D1D5DB' : '#4B5563',
+            tickfont: { color: darkMode ? '#D1D5DB' : '#4B5563' },
+            linecolor: darkMode ? '#4B5563' : '#D1D5DB',
+            mirror: true,
+            showline: true,
+            zeroline: false,
           },
-          margin: { t: 30, b: 50, l: 60, r: 30 },
+          hovermode: "x unified",
+          showlegend: false,
+          transition: {
+            duration: 0,
+          },
+        }}
+        config={{
+          displayModeBar: true,
+          displaylogo: false,
+          responsive: true,
+          scrollZoom: true,
+          modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
+          modeBarButtonsToAdd: [
+            {
+              name: 'resetView',
+              title: 'Reset View',
+              icon: {
+                width: 500,
+                height: 600,
+                path: 'M512 256A256 256 0 1 0 0 256a256 256 0 1 0 512 0zM231 127c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-71 71L376 232c13.3 0 24 10.7 24 24s-10.7 24-24 24l-182.1 0 71 71c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L119 273c-9.4-9.4-9.4-24.6 0-33.9L231 127z',
+                transform: 'matrix(-1 0 0 1 0 0)'
+              },
+              click: function(gd) {
+                Plotly.relayout(gd, {
+                  'xaxis.autorange': false,
+                  'xaxis.range': xRange,
+                  'yaxis.autorange': false,
+                  'yaxis.range': yRange
+                });
+              }
+            }
+          ]
         }}
         useResizeHandler
         style={{ width: "100%", height: "300px" }}
-        config={{
-          displayModeBar: true,
-          responsive: true,
-          scrollZoom: false,
-        }}
       />
-      <div className={`mt-4 p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value:</p>
-        <p className="text-lg font-mono" style={{ color }}>
-          {data.length > 0 ? data[data.length - 1].toFixed(2) : "N/A"}
-        </p>
-      </div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ export default function BatteryPage() {
   };
 
   useEffect(() => {
-    const ws1 = createRosWebSocket('/battery_voltage_1', (message) => {
+    const ws1 = createRosWebSocket('/battery_voltage', (message) => {
       try {
         const voltage = parseFloat(message.data);
         const currentTime = new Date().toLocaleTimeString();
