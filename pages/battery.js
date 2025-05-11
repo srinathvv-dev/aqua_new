@@ -1,87 +1,425 @@
-import { useEffect, useState } from 'react';
+// import { useEffect, useState, useRef } from 'react';
+// import dynamic from 'next/dynamic';
+// import Head from 'next/head';
+
+// const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
+
+// export default function BatteryPage() {
+//   const [data, setData] = useState({
+//     battery1: [],
+//     battery2: [],
+//     timestamps: []
+//   });
+//   const [latest, setLatest] = useState({
+//     battery1: null,
+//     battery2: null,
+//     timestamp: null
+//   });
+//   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+//   const [darkMode, setDarkMode] = useState(true);
+//   const [startTime, setStartTime] = useState(null);
+//   const [elapsedTimes, setElapsedTimes] = useState([]);
+//   const wsRef = useRef(null);
+
+//   const toggleTheme = () => {
+//     setDarkMode(!darkMode);
+//   };
+
+//   useEffect(() => {
+//     const connectWebSocket = () => {
+//       wsRef.current = new WebSocket('ws://localhost:3001');
+
+//       wsRef.current.onopen = () => {
+//         console.log('Connected to WebSocket server');
+//         setConnectionStatus('Connected');
+//       };
+
+//       wsRef.current.onmessage = (event) => {
+//         try {
+//           const message = JSON.parse(event.data);
+//           const currentTime = new Date();
+          
+//           if (!startTime) {
+//             setStartTime(currentTime);
+//           }
+
+//           const elapsedTime = startTime ? (currentTime - startTime) / 1000 : 0;
+
+//           if (message.topic === '/battery_voltage') {
+//             const newData = {
+//               battery1: message.data.battery1,
+//               battery2: message.data.battery2,
+//               timestamp: currentTime.toLocaleTimeString()
+//             };
+
+//             setLatest({
+//               battery1: newData.battery1,
+//               battery2: newData.battery2,
+//               timestamp: newData.timestamp
+//             });
+
+//             setData(prev => ({
+//               battery1: [...prev.battery1, newData.battery1],
+//               battery2: [...prev.battery2, newData.battery2],
+//               timestamps: [...prev.timestamps, elapsedTime]
+//             }));
+
+//             setElapsedTimes(prev => [...prev, elapsedTime]);
+//           }
+//         } catch (error) {
+//           console.error('Error processing message:', error);
+//         }
+//       };
+
+//       wsRef.current.onerror = (error) => {
+//         console.error('WebSocket error:', error);
+//         setConnectionStatus('Error');
+//       };
+
+//       wsRef.current.onclose = () => {
+//         console.log('WebSocket disconnected');
+//         setConnectionStatus('Disconnected');
+//       };
+//     };
+
+//     connectWebSocket();
+
+//     return () => {
+//       if (wsRef.current) {
+//         wsRef.current.close();
+//       }
+//     };
+//   }, [startTime]);
+
+//   // Battery status thresholds
+//   const voltageThresholds = {
+//     critical: 12.0,
+//     warning: 14.5,
+//     healthy: 17.0
+//   };
+
+//   const getBatteryStatus = (voltage) => {
+//     if (voltage === null || voltage === undefined) return 'unknown';
+//     if (voltage < voltageThresholds.critical) return 'critical';
+//     if (voltage < voltageThresholds.warning) return 'warning';
+//     if (voltage < voltageThresholds.healthy) return 'normal';
+//     return 'healthy';
+//   };
+
+//   const getStatusColor = (status) => {
+//     switch(status) {
+//       case 'critical': return 'bg-red-500';
+//       case 'warning': return 'bg-yellow-500';
+//       case 'normal': return 'bg-green-500';
+//       case 'healthy': return 'bg-blue-500';
+//       default: return 'bg-gray-500';
+//     }
+//   };
+
+//   const battery1Status = getBatteryStatus(latest.battery1);
+//   const battery2Status = getBatteryStatus(latest.battery2);
+
+//   const downloadCSV = () => {
+//     const csvHeader = "Timestamp,Elapsed Time (s),Battery 1 (V),Battery 2 (V)\n";
+//     const csvRows = data.timestamps.map((timestamp, index) => {
+//       return `${latest.timestamp},${timestamp.toFixed(1)},${data.battery1[index]?.toFixed(2) || ''},${data.battery2[index]?.toFixed(2) || ''}`;
+//     });
+
+//     const csvContent = csvHeader + csvRows.join("\n");
+//     const blob = new Blob([csvContent], { type: 'text/csv' });
+//     const url = URL.createObjectURL(blob);
+
+//     const link = document.createElement("a");
+//     link.href = url;
+//     link.download = "Battery_Voltage_Data.csv";
+//     link.click();
+
+//     URL.revokeObjectURL(url);
+//   };
+
+//   return (
+//     <>
+//       <Head>
+//         <title>Battery Monitoring</title>
+//       </Head>
+
+//       <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 md:p-8 transition-colors duration-200`}>
+//         <div className="max-w-7xl mx-auto">
+//           <div className="flex justify-between items-center mb-6">
+//             <h1 className={`text-3xl md:text-4xl font-bold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+//               Battery Voltage Monitoring
+//             </h1>
+//             <button
+//               onClick={toggleTheme}
+//               className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+//             >
+//               {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+//             </button>
+//           </div>
+
+//           {/* Connection Status
+//           <div className={`p-3 mb-6 rounded-lg text-center ${
+//             connectionStatus === 'Connected' ? 'bg-green-600' : 
+//             connectionStatus === 'Error' ? 'bg-red-600' : 'bg-yellow-600'
+//           }`}>
+//             Status: {connectionStatus}
+//             {latest.timestamp && (
+//               <span className="ml-4 text-sm">
+//                 Last update: {latest.timestamp}
+//               </span>
+//             )}
+//           </div> */}
+
+//           {/* Battery Status Cards */}
+//           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+//             <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery1Status)}`}>
+//               <h2 className="text-xl font-bold text-center mb-2">Battery 1</h2>
+//               <p className="text-4xl font-bold text-center">
+//                 {latest.battery1 !== null ? latest.battery1.toFixed(2) + 'V' : 'N/A'}
+//               </p>
+//               <p className="text-center mt-2">
+//                 Status: <span className="font-bold">{battery1Status.toUpperCase()}</span>
+//               </p>
+//             </div>
+
+//             <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery2Status)}`}>
+//               <h2 className="text-xl font-bold text-center mb-2">Battery 2</h2>
+//               <p className="text-4xl font-bold text-center">
+//                 {latest.battery2 !== null ? latest.battery2.toFixed(2) + 'V' : 'N/A'}
+//               </p>
+//               <p className="text-center mt-2">
+//                 Status: <span className="font-bold">{battery2Status.toUpperCase()}</span>
+//               </p>
+//             </div>
+//           </div>
+
+//           {/* Download CSV Button */}
+//           <div className="flex justify-center mb-8">
+//             <button
+//               onClick={downloadCSV}
+//               className={`px-6 py-2 ${darkMode ? 'bg-teal-500 hover:bg-teal-400' : 'bg-teal-600 hover:bg-teal-500'} text-white rounded-lg shadow-md font-semibold transition-colors duration-200`}
+//             >
+//               Download CSV
+//             </button>
+//           </div>
+
+//           {/* Horizontal Plots */}
+//           <div className="space-y-8">
+//             {/* Battery 1 Plot */}
+//             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+//               <div className="flex justify-between items-center mb-4">
+//                 <h2 className="text-xl font-semibold" style={{ color: darkMode ? "#FF6B6B" : "#dc2626" }}>
+//                   Battery 1 Voltage
+//                 </h2>
+//                 <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+//                   <span className="font-mono" style={{ color: darkMode ? "#FF6B6B" : "#dc2626" }}>
+//                     {latest.battery1 !== null ? `${latest.battery1.toFixed(2)} V` : "N/A"}
+//                   </span>
+//                 </div>
+//               </div>
+//               <Plot
+//                 data={[{
+//                   x: data.timestamps,
+//                   y: data.battery1,
+//                   type: "scatter",
+//                   mode: "lines",
+//                   line: { 
+//                     color: darkMode ? "#FF6B6B" : "#dc2626",
+//                     width: 1.5,
+//                     shape: 'linear'
+//                   },
+//                   connectgaps: true,
+//                 }]}
+//                 layout={{
+//                   paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+//                   plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+//                   margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+//                   autosize: true,
+//                   xaxis: {
+//                     title: "Time (seconds)",
+//                     showgrid: true,
+//                     gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+//                     color: darkMode ? '#D1D5DB' : '#4B5563',
+//                     range: [0, 300], // 5 minutes in seconds
+//                     fixedrange: true,
+//                     tick0: 0,
+//                     dtick: 60,
+//                   },
+//                   yaxis: {
+//                     title: "Voltage (V)",
+//                     range: [20, 30],
+//                     fixedrange: true,
+//                     showgrid: true,
+//                     gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+//                   },
+//                   hovermode: "x unified",
+//                   showlegend: false,
+//                 }}
+//                 useResizeHandler
+//                 style={{ width: "100%", height: "300px" }}
+//               />
+//             </div>
+
+//             {/* Battery 2 Plot */}
+//             <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+//               <div className="flex justify-between items-center mb-4">
+//                 <h2 className="text-xl font-semibold" style={{ color: darkMode ? "#4ECDC4" : "#0d9488" }}>
+//                   Battery 2 Voltage
+//                 </h2>
+//                 <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+//                   <span className="font-mono" style={{ color: darkMode ? "#4ECDC4" : "#0d9488" }}>
+//                     {latest.battery2 !== null ? `${latest.battery2.toFixed(2)} V` : "N/A"}
+//                   </span>
+//                 </div>
+//               </div>
+//               <Plot
+//                 data={[{
+//                   x: data.timestamps,
+//                   y: data.battery2,
+//                   type: "scatter",
+//                   mode: "lines",
+//                   line: { 
+//                     color: darkMode ? "#4ECDC4" : "#0d9488",
+//                     width: 1.5,
+//                     shape: 'linear'
+//                   },
+//                   connectgaps: true,
+//                 }]}
+//                 layout={{
+//                   paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+//                   plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+//                   margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+//                   autosize: true,
+//                   xaxis: {
+//                     title: "Time (seconds)",
+//                     showgrid: true,
+//                     gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+//                     color: darkMode ? '#D1D5DB' : '#4B5563',
+//                     range: [0, 300], // 5 minutes in seconds
+//                     fixedrange: true,
+//                     tick0: 0,
+//                     dtick: 60,
+//                   },
+//                   yaxis: {
+//                     title: "Voltage (V)",
+//                     range: [20, 30],
+//                     fixedrange: true,
+//                     showgrid: true,
+//                     gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+//                   },
+//                   hovermode: "x unified",
+//                   showlegend: false,
+//                 }}
+//                 useResizeHandler
+//                 style={{ width: "100%", height: "300px" }}
+//               />
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </>
+//   );
+// }
+
+import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { createRosWebSocket } from '../lib/ros-websocket';
+import Head from 'next/head';
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
 
 export default function BatteryPage() {
-  // State for battery data and timestamps
-  const [battery1Data, setBattery1Data] = useState([]);
-  const [battery2Data, setBattery2Data] = useState([]);
-  const [timestamps, setTimestamps] = useState([]);
-  
-  // State for all data (for CSV export)
-  const [allBattery1Data, setAllBattery1Data] = useState([]);
-  const [allBattery2Data, setAllBattery2Data] = useState([]);
-  const [allTimestamps, setAllTimestamps] = useState([]);
-  
-  // State for latest values
-  const [latestData, setLatestData] = useState({
+  const [data, setData] = useState({
+    battery1: [],
+    battery2: [],
+    timestamps: []
+  });
+  const [latest, setLatest] = useState({
     battery1: null,
     battery2: null,
     timestamp: null
   });
+  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+  const [darkMode, setDarkMode] = useState(true);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTimes, setElapsedTimes] = useState([]);
+  const wsRef = useRef(null);
 
-  // Battery status thresholds (customize as needed)
-  const voltageThresholds = {
-    critical: 22.0,
-    warning: 23.5,
-    healthy: 25.0
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
   };
 
   useEffect(() => {
-    const ws1 = createRosWebSocket('/battery_voltage', (message) => {
-      try {
-        const voltage = parseFloat(message.data);
-        const currentTime = new Date().toLocaleTimeString();
+    const connectWebSocket = () => {
+      wsRef.current = new WebSocket('ws://localhost:3001');
 
-        // Update graph data (last 50 points)
-        setBattery1Data(prev => [...prev.slice(-49), voltage]);
-        
-        // Store all data for CSV export
-        setAllBattery1Data(prev => [...prev, voltage]);
-        setAllTimestamps(prev => [...prev, currentTime]);
-        
-        // Update latest data
-        setLatestData(prev => ({
-          ...prev,
-          battery1: voltage,
-          timestamp: currentTime
-        }));
-      } catch (error) {
-        console.error('Error processing Battery 1 data:', error);
-      }
-    });
+      wsRef.current.onopen = () => {
+        console.log('Connected to WebSocket server');
+        setConnectionStatus('Connected');
+      };
 
-    const ws2 = createRosWebSocket('/battery_voltage_2', (message) => {
-      try {
-        const voltage = parseFloat(message.data);
-        const currentTime = new Date().toLocaleTimeString();
+      wsRef.current.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const currentTime = new Date();
+          
+          if (!startTime) {
+            setStartTime(currentTime);
+          }
 
-        // Update graph data (last 50 points)
-        setBattery2Data(prev => [...prev.slice(-49), voltage]);
-        
-        // Store all data for CSV export
-        setAllBattery2Data(prev => [...prev, voltage]);
-        
-        // Update latest data
-        setLatestData(prev => ({
-          ...prev,
-          battery2: voltage,
-          timestamp: currentTime
-        }));
-      } catch (error) {
-        console.error('Error processing Battery 2 data:', error);
-      }
-    });
+          const elapsedTime = startTime ? (currentTime - startTime) / 1000 : 0;
+
+          if (message.topic === '/battery_voltage') {
+            const newData = {
+              battery1: message.data.battery1,
+              battery2: message.data.battery2,
+              timestamp: currentTime.toLocaleTimeString()
+            };
+
+            setLatest({
+              battery1: newData.battery1,
+              battery2: newData.battery2,
+              timestamp: newData.timestamp
+            });
+
+            setData(prev => ({
+              battery1: [...prev.battery1, newData.battery1],
+              battery2: [...prev.battery2, newData.battery2],
+              timestamps: [...prev.timestamps, elapsedTime]
+            }));
+
+            setElapsedTimes(prev => [...prev, elapsedTime]);
+          }
+        } catch (error) {
+          console.error('Error processing message:', error);
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionStatus('Error');
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('WebSocket disconnected');
+        setConnectionStatus('Disconnected');
+      };
+    };
+
+    connectWebSocket();
 
     return () => {
-      ws1.close();
-      ws2.close();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
-  }, []);
+  }, [startTime]);
 
-  // Function to determine battery status
+  const voltageThresholds = {
+    critical: 12.0,
+    warning: 14.5,
+    healthy: 17.0
+  };
+
   const getBatteryStatus = (voltage) => {
     if (voltage === null || voltage === undefined) return 'unknown';
     if (voltage < voltageThresholds.critical) return 'critical';
@@ -90,7 +428,6 @@ export default function BatteryPage() {
     return 'healthy';
   };
 
-  // Function to get status color
   const getStatusColor = (status) => {
     switch(status) {
       case 'critical': return 'bg-red-500';
@@ -101,11 +438,13 @@ export default function BatteryPage() {
     }
   };
 
-  // Function to download CSV
+  const battery1Status = getBatteryStatus(latest.battery1);
+  const battery2Status = getBatteryStatus(latest.battery2);
+
   const downloadCSV = () => {
-    const csvHeader = "Timestamp,Battery 1 Voltage (V),Battery 2 Voltage (V)\n";
-    const csvRows = allTimestamps.map((timestamp, index) => {
-      return `${timestamp},${allBattery1Data[index]?.toFixed(2) || ''},${allBattery2Data[index]?.toFixed(2) || ''}`;
+    const csvHeader = "Timestamp,Elapsed Time (s),Battery 1 (V),Battery 2 (V)\n";
+    const csvRows = data.timestamps.map((timestamp, index) => {
+      return `${latest.timestamp},${timestamp.toFixed(1)},${data.battery1[index]?.toFixed(2) || ''},${data.battery2[index]?.toFixed(2) || ''}`;
     });
 
     const csvContent = csvHeader + csvRows.join("\n");
@@ -120,156 +459,162 @@ export default function BatteryPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Get battery statuses
-  const battery1Status = getBatteryStatus(latestData.battery1);
-  const battery2Status = getBatteryStatus(latestData.battery2);
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-semibold mb-10 text-center text-teal-400">
-          Battery Voltage Monitoring
-        </h1>
+    <>
+      <Head>
+        <title>Battery Monitoring</title>
+      </Head>
 
-        {/* Status Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Battery 1 Status */}
-          <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery1Status)}`}>
-            <h2 className="text-lg font-semibold text-center mb-2">Battery 1</h2>
-            <p className="text-3xl font-bold text-center">
-              {latestData.battery1 !== null ? latestData.battery1.toFixed(2) + 'V' : 'N/A'}
-            </p>
-            <p className="text-sm text-center mt-2">
-              Status: {battery1Status.toUpperCase()}
-            </p>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 md:p-8 transition-colors duration-200`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className={`text-3xl md:text-4xl font-bold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+              Battery Voltage Monitoring
+            </h1>
+            <button
+              onClick={toggleTheme}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+            >
+              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
           </div>
 
-          {/* Battery 2 Status */}
-          <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery2Status)}`}>
-            <h2 className="text-lg font-semibold text-center mb-2">Battery 2</h2>
-            <p className="text-3xl font-bold text-center">
-              {latestData.battery2 !== null ? latestData.battery2.toFixed(2) + 'V' : 'N/A'}
-            </p>
-            <p className="text-sm text-center mt-2">
-              Status: {battery2Status.toUpperCase()}
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery1Status)}`}>
+              <h2 className="text-xl font-bold text-center mb-2">Battery 1</h2>
+              <p className="text-4xl font-bold text-center">
+                {latest.battery1 !== null ? latest.battery1.toFixed(2) + 'V' : 'N/A'}
+              </p>
+              <p className="text-center mt-2">
+                Status: <span className="font-bold">{battery1Status.toUpperCase()}</span>
+              </p>
+            </div>
+
+            <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(battery2Status)}`}>
+              <h2 className="text-xl font-bold text-center mb-2">Battery 2</h2>
+              <p className="text-4xl font-bold text-center">
+                {latest.battery2 !== null ? latest.battery2.toFixed(2) + 'V' : 'N/A'}
+              </p>
+              <p className="text-center mt-2">
+                Status: <span className="font-bold">{battery2Status.toUpperCase()}</span>
+              </p>
+            </div>
           </div>
 
-          {/* Controls */}
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700 flex flex-col justify-center">
+          <div className="flex justify-center mb-8">
             <button
               onClick={downloadCSV}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg shadow-md font-medium transition-colors"
+              className={`px-6 py-2 ${darkMode ? 'bg-teal-500 hover:bg-teal-400' : 'bg-teal-600 hover:bg-teal-500'} text-white rounded-lg shadow-md font-semibold transition-colors duration-200`}
             >
-              Export Data (CSV)
+              Download CSV
             </button>
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              Last update: {latestData.timestamp || 'No data yet'}
-            </p>
-          </div>
-        </div>
-
-        {/* Graphs */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Battery 1 Graph */}
-          <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-red-400">
-                Battery 1 Voltage
-              </h2>
-              <div className={`px-3 py-1 rounded-full text-xs ${getStatusColor(battery1Status)}`}>
-                {battery1Status.toUpperCase()}
-              </div>
-            </div>
-            <Plot
-              data={[
-                {
-                  x: timestamps,
-                  y: battery1Data,
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: '#FF6B6B', size: 6 },
-                  line: { color: '#FF6B6B', width: 2 },
-                },
-              ]}
-              layout={{
-                paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                xaxis: {
-                  title: 'Time',
-                  color: '#ffffff',
-                  gridcolor: '#666666',
-                  tickangle: -45,
-                },
-                yaxis: {
-                  title: 'Voltage (V)',
-                  color: '#ffffff',
-                  gridcolor: '#666666',
-                  range: [20, 30] // Adjust based on your battery range
-                },
-                margin: { t: 30, b: 70, l: 60, r: 30 },
-              }}
-              useResizeHandler
-              style={{ width: '100%', height: '300px' }}
-            />
-            <div className="mt-4 p-2 bg-gray-700 rounded text-center">
-              <p className="text-sm text-gray-300">Current Voltage</p>
-              <p className="text-xl font-mono text-red-400">
-                {latestData.battery1 !== null ? latestData.battery1.toFixed(2) + 'V' : 'N/A'}
-              </p>
-            </div>
           </div>
 
-          {/* Battery 2 Graph */}
-          <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-green-400">
-                Battery 2 Voltage
-              </h2>
-              <div className={`px-3 py-1 rounded-full text-xs ${getStatusColor(battery2Status)}`}>
-                {battery2Status.toUpperCase()}
+          <div className="space-y-8">
+            {/* Battery 1 Plot */}
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold" style={{ color: darkMode ? "#FF6B6B" : "#dc2626" }}>
+                  Battery 1 Voltage
+                </h2>
+                <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <span className="font-mono" style={{ color: darkMode ? "#FF6B6B" : "#dc2626" }}>
+                    {latest.battery1 !== null ? `${latest.battery1.toFixed(2)} V` : "N/A"}
+                  </span>
+                </div>
               </div>
+              <Plot
+                data={[{
+                  x: data.timestamps,
+                  y: data.battery1,
+                  type: "scatter",
+                  mode: "lines",
+                  line: { color: darkMode ? "#FF6B6B" : "#dc2626", width: 2, shape: 'linear' },
+                  connectgaps: true,
+                }]}
+                layout={{
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  autosize: true,
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    range: [0, 300],
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60,
+                  },
+                  yaxis: {
+                    title: "Voltage (V)",
+                    range: [12, 18],
+                    fixedrange: true,
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                  },
+                  hovermode: "x unified",
+                  showlegend: false,
+                }}
+                useResizeHandler
+                style={{ width: "100%", height: "300px" }}
+              />
             </div>
-            <Plot
-              data={[
-                {
-                  x: timestamps,
-                  y: battery2Data,
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  marker: { color: '#4ECDC4', size: 6 },
-                  line: { color: '#4ECDC4', width: 2 },
-                },
-              ]}
-              layout={{
-                paper_bgcolor: 'rgba(0, 0, 0, 0)',
-                plot_bgcolor: 'rgba(0, 0, 0, 0)',
-                xaxis: {
-                  title: 'Time',
-                  color: '#ffffff',
-                  gridcolor: '#666666',
-                  tickangle: -45,
-                },
-                yaxis: {
-                  title: 'Voltage (V)',
-                  color: '#ffffff',
-                  gridcolor: '#666666',
-                  range: [20, 30] // Adjust based on your battery range
-                },
-                margin: { t: 30, b: 70, l: 60, r: 30 },
-              }}
-              useResizeHandler
-              style={{ width: '100%', height: '300px' }}
-            />
-            <div className="mt-4 p-2 bg-gray-700 rounded text-center">
-              <p className="text-sm text-gray-300">Current Voltage</p>
-              <p className="text-xl font-mono text-green-400">
-                {latestData.battery2 !== null ? latestData.battery2.toFixed(2) + 'V' : 'N/A'}
-              </p>
+
+            {/* Battery 2 Plot */}
+            <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold" style={{ color: darkMode ? "#4ECDC4" : "#0d9488" }}>
+                  Battery 2 Voltage
+                </h2>
+                <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <span className="font-mono" style={{ color: darkMode ? "#4ECDC4" : "#0d9488" }}>
+                    {latest.battery2 !== null ? `${latest.battery2.toFixed(2)} V` : "N/A"}
+                  </span>
+                </div>
+              </div>
+              <Plot
+                data={[{
+                  x: data.timestamps,
+                  y: data.battery2,
+                  type: "scatter",
+                  mode: "lines",
+                  line: { color: darkMode ? "#4ECDC4" : "#0d9488", width: 2, shape: 'linear' },
+                  connectgaps: true,
+                }]}
+                layout={{
+                  paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+                  plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                  margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+                  autosize: true,
+                  xaxis: {
+                    title: "Time (seconds)",
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                    color: darkMode ? '#D1D5DB' : '#4B5563',
+                    range: [0, 300],
+                    fixedrange: true,
+                    tick0: 0,
+                    dtick: 60,
+                  },
+                  yaxis: {
+                    title: "Voltage (V)",
+                    range: [12, 18],
+                    fixedrange: true,
+                    showgrid: true,
+                    gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+                  },
+                  hovermode: "x unified",
+                  showlegend: false,
+                }}
+                useResizeHandler
+                style={{ width: "100%", height: "300px" }}
+              />
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

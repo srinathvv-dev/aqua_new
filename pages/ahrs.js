@@ -206,7 +206,7 @@ export default function AHRSPage() {
             unit="°"
             darkMode={darkMode}
             yRange={[-15, 15]}
-            xRange={[0, 300]}
+            xRange={[0, 1000]}
           />
           
           {/* Pitch Graph */}
@@ -219,7 +219,7 @@ export default function AHRSPage() {
             unit="°"
             darkMode={darkMode}
             yRange={[-15, 15]}
-            xRange={[0, 300]}
+            xRange={[0, 1000]}
           />
           
           {/* Yaw Graph */}
@@ -232,7 +232,7 @@ export default function AHRSPage() {
             unit="°"
             darkMode={darkMode}
             yRange={[0, 360]}
-            xRange={[0, 300]}
+            xRange={[0, 1000]}
           />
         </div>
       </div>
