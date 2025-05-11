@@ -1,1127 +1,636 @@
-/**
- * @file CombinedGraphPage.js
- * @brief Enhanced component with sensor selection functionality and full-length graphs
- */
+// pages/combined.js
+import { useEffect, useState, useRef } from "react";
+import dynamic from "next/dynamic";
+import Head from "next/head";
 
-import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { createRosWebSocket } from '../lib/ros-websocket';
+// Dynamically import the Plot component
+const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
-// Dynamic import for Plotly.js to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
-
-/**
- * @function formatCurrentValue
- * @brief Safely formats any value for display
- */
-const formatCurrentValue = (value) => {
-  if (value === undefined || value === null) return 'N/A';
-  
-  switch (typeof value) {
-    case 'number':
-      return value.toFixed(2);
-    case 'object':
-      try {
-        if (Array.isArray(value)) {
-          return `[${value.map(v => formatCurrentValue(v)).join(', ')}]`;
-        }
-        return JSON.stringify(value);
-      } catch {
-        return 'Complex Data';
-      }
-    case 'boolean':
-      return value.toString();
-    default:
-      return String(value);
+// Sensor configuration
+const SENSORS = {
+  depth_impact: {
+    name: "Depth Impact",
+    endpoint: "/depth_impact",
+    dataKeys: ["Depth", "Temperature", "Pressure"],
+    units: ["m", "°C", "mbar"],
+    colors: ["#4ECDC4", "#FF6B6B", "#1D8CF8"],
+    yRanges: [[0, 5], [0, 40], [0, 2000]]
+  },
+  ahrs: {
+    name: "AHRS",
+    endpoint: "/ahrs",
+    dataKeys: ["Heading", "Pitch", "Roll"],
+    units: ["°", "°", "°"],
+    colors: ["#1D8CF8", "#4ECDC4", "#FF6B6B"],
+    yRanges: [[0, 360], [-15, 15], [-15, 15]]
+  },
+  battery: {
+    name: "Battery",
+    endpoint: "/battery_voltage",
+    dataKeys: ["battery1", "battery2"],
+    units: ["V", "V"],
+    colors: ["#FF6B6B", "#4ECDC4"],
+    yRanges: [[12, 18], [12, 18]],
+    isBattery: true
+  },
+  dvl: {
+    name: "DVL",
+    endpoint: "/dvl/data",
+    dataKeys: ["vx", "vy", "vz", "altitude", "fom"],
+    units: ["m/s", "m/s", "m/s", "m", ""],
+    colors: ["#1D8CF8", "#4ECDC4", "#FF6B6B", "#FFD700", "#9B59B6"],
+    yRanges: [[-2, 2], [-2, 2], [-2, 2], [0, 100], [0, 10]],
+    isDVL: true
   }
 };
 
-/**
- * WebSocket Initialization Helpers
- */
+function ErrorBoundary({ children }) {
+  const [hasError, setHasError] = useState(false);
 
-const initializeAhrsWebSocket = (setRollData, setPitchData, setYawData, setAhrsTimestamps) => {
-  const ahrsWs = createRosWebSocket('/ahrs', (message) => {
-    try {
-      const dataArray = message.data || [];
-      const roll = dataArray[2] || 0;
-      const pitch = dataArray[1] || 0;
-      const yaw = dataArray[0] || 0;
-      const timestamp = new Date().toLocaleTimeString();
-
-      setRollData(prev => [...prev, roll]);
-      setPitchData(prev => [...prev, pitch]);
-      setYawData(prev => [...prev, yaw]);
-      setAhrsTimestamps(prev => [...prev, timestamp]);
-    } catch (error) {
-      console.error('AHRS Data Error:', error.message);
-    }
-  });
-  return ahrsWs;
-};
-
-const initializeBar30WebSocket = (setDepthData, setBar30Timestamps) => {
-  const bar30Ws = createRosWebSocket('/depth_impact', (message) => {
-    try {
-      const dataArray = message.data || [];
-      const depth = dataArray[0] || 0;
-      
-      setDepthData(prev => [...prev, depth]);
-      setBar30Timestamps(prev => [...prev, new Date().toLocaleTimeString()]);
-    } catch (error) {
-      console.error('Bar30 Data Error:', error.message);
-    }
-  });
-  return bar30Ws;
-};
-
-const initializeBatteryWebSocket = (setBatteryData, setBatteryTimestamps) => {
-  const batteryWs = createRosWebSocket('/battery_voltage_1', (message) => {
-    try {
-      const { battery1, battery2 } = message.data;
-      const voltages = {
-        battery1: Number(battery1) || 0,
-        battery2: Number(battery2) || 0
-      };
-      
-      setBatteryData(prev => [...prev, voltages]);
-      setBatteryTimestamps(prev => [...prev, new Date().toLocaleTimeString()]);
-    } catch (error) {
-      console.error('Battery Data Error:', error.message);
-    }
-  });
-  return batteryWs;
-};
-
-const initializeDvlWebSocket = (setDvlData, setDvlTimestamps) => {
-  const dvlWs = createRosWebSocket('/dvl/data', (message) => {
-    try {
-      const rawData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
-      const velocityData = {
-        x: rawData.velocity?.x || 0,
-        y: rawData.velocity?.y || 0,
-        z: rawData.velocity?.z || 0,
-        altitude: rawData.altitude || 0,
-        valid: rawData.velocity_valid || false
-      };
-
-      const timestamp = new Date().toLocaleTimeString();
-      
-      setDvlData(prev => [...prev, velocityData]);
-      setDvlTimestamps(prev => [...prev, timestamp]);
-    } catch (error) {
-      console.error('DVL Data Error:', error.message);
-    }
-  });
-  
-  dvlWs.onerror = (error) => {
-    console.error('DVL WebSocket error:', error);
-  };
-  
-  return dvlWs;
-};
-
-const parseUSRTHMessage = (message) => {
-  if (!message || typeof message !== 'string') return null;
-  
-  const fields = message.split(',');
-  if (fields[0] === '$USRTH' && fields.length > 11) {
-    return {
-      ab: parseFloat(fields[1]),
-      sr: parseFloat(fields[4]),
-      ey: parseFloat(fields[11]),
-      raw: message
+  useEffect(() => {
+    const errorHandler = (error) => {
+      console.error('Error caught by boundary:', error);
+      setHasError(true);
     };
+    window.addEventListener('error', errorHandler);
+    return () => window.removeEventListener('error', errorHandler);
+  }, []);
+
+  if (hasError) {
+    return <div className="text-red-500 p-4">Error displaying component</div>;
   }
-  return null;
-};
 
-const initializeRovlWebSocket = (setRovlData) => {
-  const rovlWs = createRosWebSocket('/rovl', (message) => {
-    try {
-      if (message && typeof message === 'object' && 'data' in message) {
-        const parsedData = parseUSRTHMessage(message.data);
-        if (parsedData) {
-          setRovlData(prev => {
-            const currentTime = new Date().toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              second: '2-digit' 
-            });
-            
-            return {
-              timestamps: [...prev.timestamps, currentTime],
-              abValues: [...prev.abValues, parsedData.ab],
-              srValues: [...prev.srValues, parsedData.sr],
-              eyValues: [...prev.eyValues, parsedData.ey],
-              latestMessage: parsedData.raw
-            };
-          });
+  return children;
+}
+
+function createRosWebSocket() {
+  return {
+    onmessage: null,
+    onerror: null,
+    onclose: null,
+    close: () => {},
+
+    connect: function() {
+      console.log('Attempting to connect to WebSocket');
+      this.ws = new WebSocket('ws://localhost:3001');
+
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (this.onmessage) {
+            this.onmessage({ data: JSON.stringify(message) });
+          }
+        } catch (err) {
+          console.error('Error processing WebSocket message:', err);
+          if (this.onerror) this.onerror(err);
         }
-      }
-    } catch (error) {
-      console.error('ROVL Data Error:', error.message);
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        if (this.onerror) this.onerror(error);
+      };
+
+      this.ws.onclose = () => {
+        console.log('WebSocket closed');
+        if (this.onclose) this.onclose();
+      };
+
+      this.close = () => {
+        if (this.ws) {
+          this.ws.close();
+        }
+      };
     }
+  };
+}
+
+export default function CombinedSensorPage() {
+  const [sensorData, setSensorData] = useState({});
+  const [timestamps, setTimestamps] = useState([]);
+  const [elapsedTimes, setElapsedTimes] = useState([]);
+  const [startTime, setStartTime] = useState(null);
+  const [darkMode, setDarkMode] = useState(true);
+  const [selectedSensors, setSelectedSensors] = useState({
+    depth_impact: true,
+    ahrs: true,
+    battery: true,
+    dvl: true
   });
-  
-  rovlWs.onerror = (error) => {
-    console.error('ROVL WebSocket error:', error);
-  };
-  
-  return rovlWs;
-};
+  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
+  const [rawData, setRawData] = useState('Waiting for data...');
+  const wsRef = useRef(null);
 
-/**
- * @function SensorPlot
- * @brief Enhanced plot component with full-length horizontal graphs
- */
-function SensorPlot({ title, data, timestamps, titleColor, markerColor, darkMode }) {
-  // Create time array starting from 0 with 1 second intervals
-  const timeArray = Array.from({ length: data.length }, (_, i) => i);
-  const currentValue = data.length > 0 ? data[data.length - 1] : null;
-
-  return (
-    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: titleColor }}>
-          {title}
-        </h2>
-        <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-          <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Samples: {data.length}
-          </span>
-        </div>
-      </div>
+  // Initialize sensor data structure
+  useEffect(() => {
+    const initialData = {};
+    Object.keys(SENSORS).forEach(sensorKey => {
+      initialData[sensorKey] = {};
+      SENSORS[sensorKey].dataKeys.forEach((key, idx) => {
+        initialData[sensorKey][key] = [];
+      });
       
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <Plot
-            data={[{
-              x: timeArray,
-              y: data,
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: markerColor, size: 4 },
-              line: { color: markerColor, width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 300,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true,
-                autorange: true
-              },
-              yaxis: { 
-                title: 'Value', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                autorange: true
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-              hovermode: 'closest',
-            }}
-            config={{
-              displayModeBar: true,
-              responsive: true,
-              scrollZoom: true
-            }}
-            useResizeHandler
-          />
-        </div>
-        
-        <div className={`w-full md:w-48 p-4 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-          <div className="text-center mb-4">
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Current Value</p>
-            <p className="text-2xl font-mono font-bold" style={{ color: markerColor }}>
-              {formatCurrentValue(currentValue)}
-            </p>
-          </div>
+      // Special initialization for DVL
+      if (sensorKey === 'dvl') {
+        initialData[sensorKey].current = {
+          vx: 0, vy: 0, vz: 0,
+          altitude: 0, fom: 0,
+          velocityValid: false,
+          status: 0
+        };
+      }
+    });
+    setSensorData(initialData);
+  }, []);
+
+  // Toggle sensor selection
+  const toggleSensor = (sensorKey) => {
+    setSelectedSensors(prev => ({
+      ...prev,
+      [sensorKey]: !prev[sensorKey]
+    }));
+  };
+
+  // WebSocket connections
+  useEffect(() => {
+    const ws = createRosWebSocket();
+    
+    ws.onmessage = (message) => {
+      try {
+        const parsed = JSON.parse(message.data);
+        const topic = parsed.topic;
+        const messageData = parsed.data;
+        const currentTime = new Date();
+
+        // Set start time on first data point
+        if (!startTime) {
+          setStartTime(currentTime);
+        }
+
+        // Calculate elapsed time in seconds
+        const elapsedTime = startTime ? (currentTime - startTime) / 1000 : 0;
+
+        setRawData(JSON.stringify(parsed, null, 2));
+
+        // Update timestamps
+        setTimestamps(prev => [...prev, currentTime.toLocaleTimeString()]);
+        setElapsedTimes(prev => [...prev, elapsedTime]);
+
+        // Update sensor data
+        setSensorData(prev => {
+          const newData = {...prev};
           
-          <div className="space-y-2">
-            <div>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>First Value</p>
-              <p className="font-mono">
-                {formatCurrentValue(data[0])}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Max Value</p>
-              <p className="font-mono">
-                {formatCurrentValue(Math.max(...data))}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Min Value</p>
-              <p className="font-mono">
-                {formatCurrentValue(Math.min(...data))}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DvlSensorGroup({ dvlData, dvlTimestamps, darkMode }) {
-  const downloadCSV = () => {
-    let csvContent = 'Timestamp,X Velocity,Y Velocity,Z Velocity,Altitude,Valid\n';
-    dvlTimestamps.forEach((timestamp, index) => {
-      const data = dvlData[index] || {};
-      csvContent += `${timestamp},${data.x || ''},${data.y || ''},${data.z || ''},${data.altitude || ''},${data.valid || ''}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'dvl_data.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Create time arrays for each plot
-  const timeArray = Array.from({ length: dvlData.length }, (_, i) => i);
-
-  return (
-    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className={`text-lg font-semibold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-          DVL Sensor Data
-        </h2>
-        <div className="flex items-center gap-2">
-          <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-            <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Samples: {dvlData.length}
-            </span>
-          </div>
-          <button
-            onClick={downloadCSV}
-            className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-          >
-            Download CSV
-          </button>
-        </div>
-      </div>
-      
-      <div className="space-y-6">
-        {/* X Velocity Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            X Velocity (m/s)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: dvlData.map(d => d.x),
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#FF4500', size: 4 },
-              line: { color: '#FF4500', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(dvlData[0]?.x)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.x)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.x)))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.x)))}
-            </span>
-          </div>
-        </div>
-
-        {/* Y Velocity Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Y Velocity (m/s)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: dvlData.map(d => d.y),
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#FF8C00', size: 4 },
-              line: { color: '#FF8C00', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(dvlData[0]?.y)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.y)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.y)))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.y)))}
-            </span>
-          </div>
-        </div>
-
-        {/* Z Velocity Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Z Velocity (m/s)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: dvlData.map(d => d.z),
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#FF6347', size: 4 },
-              line: { color: '#FF6347', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(dvlData[0]?.z)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.z)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.z)))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.z)))}
-            </span>
-          </div>
-        </div>
-
-        {/* Altitude Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Altitude (m)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: dvlData.map(d => d.altitude),
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#FFA500', size: 4 },
-              line: { color: '#FFA500', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(dvlData[0]?.altitude)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(dvlData[dvlData.length - 1]?.altitude)}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...dvlData.map(d => d.altitude)))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...dvlData.map(d => d.altitude)))}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Status Display */}
-      <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-        <div className="flex justify-between items-center">
-          <h3 className={`text-md font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-            DVL Status
-          </h3>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            dvlData.length > 0 && dvlData[dvlData.length - 1]?.valid 
-              ? 'bg-green-500 text-white' 
-              : 'bg-red-500 text-white'
-          }`}>
-            {dvlData.length > 0 && dvlData[dvlData.length - 1]?.valid ? 'VALID' : 'INVALID'}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RovlSensorGroup({ rovlData, darkMode }) {
-  const downloadCSV = () => {
-    let csvContent = 'Timestamp,Apparent Bearing,Slant Range,Euler Yaw\n';
-    rovlData.timestamps.forEach((timestamp, index) => {
-      csvContent += `${timestamp},${rovlData.abValues[index] ?? ''},${rovlData.srValues[index] ?? ''},${rovlData.eyValues[index] ?? ''}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'rovl_data.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Create time array for all plots
-  const timeArray = Array.from({ length: rovlData.timestamps.length }, (_, i) => i);
-
-  return (
-    <div className={`rounded-lg p-6 shadow-lg border mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className={`text-lg font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-          ROVL Sensor Data
-        </h2>
-        <div className="flex items-center gap-2">
-          <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-            <span className={`font-mono ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Samples: {rovlData.timestamps.length}
-            </span>
-          </div>
-          <button
-            onClick={downloadCSV}
-            className={`px-3 py-1 rounded shadow text-sm font-medium ${darkMode ? 'bg-teal-400 hover:bg-teal-500 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-          >
-            Download CSV
-          </button>
-        </div>
-      </div>
-      
-      <div className="space-y-6">
-        {/* Apparent Bearing Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Apparent Bearing (degrees)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: rovlData.abValues,
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#1abc9c', size: 4 },
-              line: { color: '#1abc9c', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(rovlData.abValues[0])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(rovlData.abValues[rovlData.abValues.length - 1])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...rovlData.abValues))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...rovlData.abValues))}
-            </span>
-          </div>
-        </div>
-
-        {/* Slant Range Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Slant Range (meters)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: rovlData.srValues,
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#e74c3c', size: 4 },
-              line: { color: '#e74c3c', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(rovlData.srValues[0])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(rovlData.srValues[rovlData.srValues.length - 1])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...rovlData.srValues))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...rovlData.srValues))}
-            </span>
-          </div>
-        </div>
-
-        {/* Euler Yaw Graph */}
-        <div>
-          <h3 className={`text-md font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Euler Yaw (degrees)
-          </h3>
-          <Plot
-            data={[{
-              x: timeArray,
-              y: rovlData.eyValues,
-              type: 'scatter',
-              mode: 'lines+markers',
-              marker: { color: '#3498db', size: 4 },
-              line: { color: '#3498db', width: 1 },
-            }]}
-            layout={{
-              width: 1200,
-              height: 200,
-              paper_bgcolor: 'rgba(0,0,0,0)',
-              plot_bgcolor: 'rgba(0,0,0,0)',
-              xaxis: { 
-                title: 'Time (s)', 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB',
-                showgrid: true
-              },
-              yaxis: { 
-                color: darkMode ? '#ffffff' : '#000000',
-                gridcolor: darkMode ? '#333333' : '#E5E7EB',
-                zerolinecolor: darkMode ? '#666666' : '#D1D5DB'
-              },
-              margin: { t: 30, b: 50, l: 60, r: 30 },
-            }}
-            config={{
-              displayModeBar: false,
-              responsive: true
-            }}
-          />
-          <div className="flex justify-between mt-2">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              First: {formatCurrentValue(rovlData.eyValues[0])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Current: {formatCurrentValue(rovlData.eyValues[rovlData.eyValues.length - 1])}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Max: {formatCurrentValue(Math.max(...rovlData.eyValues))}
-            </span>
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Min: {formatCurrentValue(Math.min(...rovlData.eyValues))}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Latest Data Display */}
-      <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-        <h3 className={`text-md font-semibold text-center mb-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-          Latest ROVL Message
-        </h3>
-        <pre className={`text-xs p-3 rounded overflow-x-auto ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-200 text-gray-800'}`}>
-          {rovlData.latestMessage || 'No data received yet.'}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-function SensorSelectionPanel({ 
-  selectedSensors, 
-  toggleSensor, 
-  darkMode,
-  isSidebarOpen,
-  toggleSidebar 
-}) {
-  const sensorGroups = [
-    {
-      name: "Orientation",
-      sensors: [
-        { id: 'roll', name: 'Roll', color: '#FF6B6B' },
-        { id: 'pitch', name: 'Pitch', color: '#4ECDC4' },
-        { id: 'yaw', name: 'Yaw', color: '#1D8CF8' }
-      ]
-    },
-    {
-      name: "Environmental",
-      sensors: [
-        { id: 'depth', name: 'Depth (Bar30)', color: '#FFC107' }
-      ]
-    },
-    {
-      name: "Power",
-      sensors: [
-        { id: 'battery1', name: 'Battery 1', color: '#FFD700' },
-        { id: 'battery2', name: 'Battery 2', color: '#32CD32' }
-      ]
-    },
-    {
-      name: "Navigation",
-      sensors: [
-        { id: 'dvl', name: 'DVL System', color: '#FF4500' },
-        { id: 'rovl', name: 'ROVL System', color: '#1abc9c' }
-      ]
-    }
-  ];
-
-  return (
-    <div className={`fixed md:relative z-20 transition-all duration-300 ease-in-out 
-      ${isSidebarOpen ? 'left-0' : '-left-64 md:left-0'} 
-      ${darkMode ? 'bg-gray-800' : 'bg-white'} 
-      h-full w-64 border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'} 
-      shadow-lg`}
-    >
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-            Sensor Selection
-          </h2>
-          <button 
-            onClick={toggleSidebar}
-            className={`md:hidden p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-          >
-            {isSidebarOpen ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {sensorGroups.map(group => (
-            <div key={group.name}>
-              <h3 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {group.name}
-              </h3>
-              <div className="space-y-2">
-                {group.sensors.map(sensor => (
-                  <div 
-                    key={sensor.id} 
-                    className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                    onClick={() => toggleSensor(sensor.id)}
-                  >
-                    <div 
-                      className={`w-4 h-4 rounded-full mr-3`}
-                      style={{ backgroundColor: sensor.color }}
-                    ></div>
-                    <span className={`flex-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      {sensor.name}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={selectedSensors.includes(sensor.id)}
-                      onChange={() => toggleSensor(sensor.id)}
-                      className={`form-checkbox h-5 w-5 rounded ${darkMode ? 'text-teal-400 bg-gray-700 border-gray-600' : 'text-teal-600 border-gray-300'}`}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6">
-          <button
-            onClick={() => {
-              const allSensors = sensorGroups.flatMap(group => group.sensors.map(s => s.id));
-              if (selectedSensors.length === allSensors.length) {
-                // If all are selected, deselect all
-                selectedSensors.forEach(sensor => toggleSensor(sensor));
-              } else {
-                // Otherwise select all
-                allSensors.forEach(sensor => {
-                  if (!selectedSensors.includes(sensor)) {
-                    toggleSensor(sensor);
+          // Handle DVL data
+          if (topic === '/dvl/data' && selectedSensors.dvl) {
+            newData.dvl = {
+              ...newData.dvl,
+              vx: [...newData.dvl.vx, messageData.velocity?.x || 0],
+              vy: [...newData.dvl.vy, messageData.velocity?.y || 0],
+              vz: [...newData.dvl.vz, messageData.velocity?.z || 0],
+              altitude: [...newData.dvl.altitude, messageData.altitude || 0],
+              fom: [...newData.dvl.fom, messageData.fom || 0],
+              current: {
+                vx: messageData.velocity?.x || 0,
+                vy: messageData.velocity?.y || 0,
+                vz: messageData.velocity?.z || 0,
+                altitude: messageData.altitude || 0,
+                fom: messageData.fom || 0,
+                velocityValid: messageData.velocity_valid || false,
+                status: messageData.status || 0
+              }
+            };
+          }
+          // Handle battery data
+          else if (topic === '/battery_voltage' && selectedSensors.battery) {
+            newData.battery.battery1 = [...newData.battery.battery1, messageData.battery1];
+            newData.battery.battery2 = [...newData.battery.battery2, messageData.battery2];
+          } 
+          // Handle other sensors
+          else {
+            Object.keys(selectedSensors).forEach(sensorKey => {
+              if (selectedSensors[sensorKey] && topic === SENSORS[sensorKey].endpoint) {
+                const sensorConfig = SENSORS[sensorKey];
+                sensorConfig.dataKeys.forEach((key, idx) => {
+                  if (!newData[sensorKey][key]) {
+                    newData[sensorKey][key] = [];
                   }
+                  newData[sensorKey][key] = [...newData[sensorKey][key], messageData[idx] || 0];
                 });
               }
-            }}
-            className={`w-full py-2 px-4 rounded-lg font-medium ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
-          >
-            {selectedSensors.length === sensorGroups.flatMap(group => group.sensors.map(s => s.id)).length 
-              ? 'Deselect All' 
-              : 'Select All'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            });
+          }
+          
+          return newData;
+        });
 
-export default function CombinedGraphPage() {
-  // State initialization without TypeScript syntax
-  const [rollData, setRollData] = useState([]);
-  const [pitchData, setPitchData] = useState([]);
-  const [yawData, setYawData] = useState([]);
-  const [ahrsTimestamps, setAhrsTimestamps] = useState([]);
+        setConnectionStatus('Connected - Receiving data');
+      } catch (error) {
+        console.error('Error processing message:', error);
+        setConnectionStatus(`Error: ${error.message}`);
+      }
+    };
 
-  const [depthData, setDepthData] = useState([]);
-  const [bar30Timestamps, setBar30Timestamps] = useState([]);
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setConnectionStatus('WebSocket error - See console');
+    };
 
-  const [batteryData, setBatteryData] = useState([]);
-  const [batteryTimestamps, setBatteryTimestamps] = useState([]);
+    ws.onclose = () => {
+      console.log('WebSocket connection closed');
+      setConnectionStatus('Disconnected - Attempting to reconnect...');
+    };
 
-  const [dvlData, setDvlData] = useState([]);
-  const [dvlTimestamps, setDvlTimestamps] = useState([]);
+    ws.connect();
+    wsRef.current = ws;
 
-  const [rovlData, setRovlData] = useState({
-    timestamps: [],
-    abValues: [],
-    srValues: [],
-    eyValues: [],
-    latestMessage: null
-  });
-
-  const [darkMode, setDarkMode] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedSensors, setSelectedSensors] = useState([
-    'roll', 'pitch', 'yaw', 'depth', 'battery1', 'battery2', 'dvl', 'rovl'
-  ]);
+    return () => {
+      console.log('Cleaning up WebSocket');
+      ws.close();
+    };
+  }, [selectedSensors, startTime]);
 
   const toggleTheme = () => {
     setDarkMode(!darkMode);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+  // Battery status thresholds
+  const voltageThresholds = {
+    critical: 12.0,
+    warning: 14.5,
+    healthy: 17.0
   };
 
-  const toggleSensor = (sensorId) => {
-    setSelectedSensors(prev => 
-      prev.includes(sensorId) 
-        ? prev.filter(id => id !== sensorId)
-        : [...prev, sensorId]
-    );
+  const getBatteryStatus = (voltage) => {
+    if (voltage === null || voltage === undefined) return 'unknown';
+    if (voltage < voltageThresholds.critical) return 'critical';
+    if (voltage < voltageThresholds.warning) return 'warning';
+    if (voltage < voltageThresholds.healthy) return 'normal';
+    return 'healthy';
   };
 
-  useEffect(() => {
-    const wsConnections = [
-      initializeAhrsWebSocket(setRollData, setPitchData, setYawData, setAhrsTimestamps),
-      initializeBar30WebSocket(setDepthData, setBar30Timestamps),
-      initializeBatteryWebSocket(setBatteryData, setBatteryTimestamps),
-      initializeDvlWebSocket(setDvlData, setDvlTimestamps),
-      initializeRovlWebSocket(setRovlData)
-    ];
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'critical': return 'bg-red-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'normal': return 'bg-green-500';
+      case 'healthy': return 'bg-blue-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
-    return () => wsConnections.forEach(ws => ws?.close());
-  }, []);
+  const getDVLStatusColor = (valid) => {
+    return valid ? 'bg-green-500' : 'bg-red-500';
+  };
 
-  // Check if any sensor group is selected
-  const hasSelectedSensors = selectedSensors.length > 0;
+  const getConnectionStatusColor = () => {
+    if (connectionStatus.includes('Error') || connectionStatus.includes('Disconnected')) {
+      return 'text-red-500';
+    } else if (connectionStatus.includes('Connected')) {
+      return 'text-green-500';
+    }
+    return 'text-yellow-500';
+  };
+
+  const formatValue = (value, unit = '') => {
+    if (value === null || value === undefined) return 'N/A';
+    if (typeof value === 'number') {
+      return Math.abs(value) < 0.001 ? 
+        `${value.toExponential(2)} ${unit}` : 
+        `${value.toFixed(4)} ${unit}`;
+    }
+    return `${value} ${unit}`;
+  };
+
+  const downloadCSV = () => {
+    // Create CSV content for all selected sensors
+    let csvHeader = "Timestamp,Elapsed Time (s),";
+    const sensorColumns = [];
+    
+    Object.keys(selectedSensors).forEach(sensorKey => {
+      if (selectedSensors[sensorKey]) {
+        const sensor = SENSORS[sensorKey];
+        sensor.dataKeys.forEach((key, idx) => {
+          csvHeader += `${sensor.name} ${key} (${sensor.units[idx]}),`;
+          sensorColumns.push({sensorKey, key, idx});
+        });
+      }
+    });
+    
+    csvHeader = csvHeader.slice(0, -1) + "\n";
+    
+    const csvRows = timestamps.map((timestamp, timeIdx) => {
+      let row = `${timestamp},${elapsedTimes[timeIdx]?.toFixed(1) || 0},`;
+      
+      sensorColumns.forEach(col => {
+        let value;
+        // Special handling for DVL data
+        if (col.sensorKey === 'dvl') {
+          const dvlData = sensorData.dvl;
+          switch(col.key) {
+            case 'vx': value = dvlData.vx[timeIdx]; break;
+            case 'vy': value = dvlData.vy[timeIdx]; break;
+            case 'vz': value = dvlData.vz[timeIdx]; break;
+            case 'altitude': value = dvlData.altitude[timeIdx]; break;
+            case 'fom': value = dvlData.fom[timeIdx]; break;
+            default: value = "";
+          }
+        } else {
+          value = sensorData[col.sensorKey]?.[col.key]?.[timeIdx] || "";
+        }
+        row += `${value.toFixed?.(4) || value},`;
+      });
+      
+      return row.slice(0, -1);
+    });
+
+    const csvContent = csvHeader + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Combined_Sensor_Data.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-200`}>
-      <div className="flex">
-        {/* Sensor Selection Panel */}
-        <SensorSelectionPanel 
-          selectedSensors={selectedSensors} 
-          toggleSensor={toggleSensor} 
-          darkMode={darkMode}
-          isSidebarOpen={isSidebarOpen}
-          toggleSidebar={toggleSidebar}
-        />
+    <ErrorBoundary>
+      <Head>
+        <title>Combined Sensor Monitoring</title>
+      </Head>
 
-        {/* Main Content */}
-        <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-64 md:ml-0' : 'ml-0'}`}>
-          <div className={`p-4 md:p-8 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            <header className="mb-8">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className={`text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${darkMode ? 'from-teal-400 to-blue-500' : 'from-teal-600 to-blue-600'}`}>
-                    Underwater Vehicle Sensor Dashboard
-                  </h1>
-                  <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Real-time monitoring of selected vehicle systems
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={toggleSidebar}
-                    className={`md:hidden p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={toggleTheme}
-                    className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
-                  >
-                    {darkMode ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </header>
-
-            {!hasSelectedSensors && (
-              <div className={`rounded-lg p-8 text-center ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <h2 className="text-xl font-semibold mb-2">No Sensors Selected</h2>
-                <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Please select at least one sensor from the sidebar to display data.
-                </p>
-                <button
-                  onClick={toggleSidebar}
-                  className={`px-4 py-2 rounded-lg font-medium ${darkMode ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'bg-teal-500 hover:bg-teal-600 text-white'}`}
-                >
-                  Open Sensor Selection
-                </button>
-              </div>
-            )}
-
-            {hasSelectedSensors && (
-              <div className="space-y-6">
-                {/* Roll */}
-                {selectedSensors.includes('roll') && (
-                  <SensorPlot 
-                    title="Roll" 
-                    data={rollData} 
-                    timestamps={ahrsTimestamps} 
-                    titleColor="#FF6B6B" 
-                    markerColor="#FF6B6B"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* Pitch */}
-                {selectedSensors.includes('pitch') && (
-                  <SensorPlot 
-                    title="Pitch" 
-                    data={pitchData} 
-                    timestamps={ahrsTimestamps} 
-                    titleColor="#4ECDC4" 
-                    markerColor="#4ECDC4"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* Yaw */}
-                {selectedSensors.includes('yaw') && (
-                  <SensorPlot 
-                    title="Yaw" 
-                    data={yawData} 
-                    timestamps={ahrsTimestamps} 
-                    titleColor="#1D8CF8" 
-                    markerColor="#1D8CF8"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* Depth */}
-                {selectedSensors.includes('depth') && (
-                  <SensorPlot 
-                    title="Depth (Bar30)" 
-                    data={depthData} 
-                    timestamps={bar30Timestamps} 
-                    titleColor="#FFC107" 
-                    markerColor="#FFC107"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* Battery 1 */}
-                {selectedSensors.includes('battery1') && (
-                  <SensorPlot 
-                    title="Battery 1 Voltage" 
-                    data={batteryData.map(d => d.battery1)} 
-                    timestamps={batteryTimestamps} 
-                    titleColor="#FFD700" 
-                    markerColor="#FFD700"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* Battery 2 */}
-                {selectedSensors.includes('battery2') && (
-                  <SensorPlot 
-                    title="Battery 2 Voltage" 
-                    data={batteryData.map(d => d.battery2)} 
-                    timestamps={batteryTimestamps} 
-                    titleColor="#32CD32" 
-                    markerColor="#32CD32"
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* DVL Sensor Group */}
-                {selectedSensors.includes('dvl') && (
-                  <DvlSensorGroup 
-                    dvlData={dvlData} 
-                    dvlTimestamps={dvlTimestamps} 
-                    darkMode={darkMode}
-                  />
-                )}
-
-                {/* ROVL Sensor Group */}
-                {selectedSensors.includes('rovl') && (
-                  <RovlSensorGroup 
-                    rovlData={rovlData} 
-                    darkMode={darkMode}
-                  />
-                )}
-              </div>
-            )}
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-8 transition-colors duration-200`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className={`text-4xl font-semibold text-center ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+              Combined Sensor Monitoring
+            </h1>
+            <button
+              onClick={toggleTheme}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} transition-colors`}
+            >
+              {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
           </div>
+
+          {/* Connection Status */}
+          <div className={`text-center mb-6 ${getConnectionStatusColor()}`}>
+            {connectionStatus}
+          </div>
+
+          {/* Sensor Selection */}
+          <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} mb-8`}>
+            <h2 className={`text-lg font-semibold text-center mb-4 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+              Select Sensors to Display
+            </h2>
+            <div className="flex flex-wrap justify-center gap-4">
+              {Object.keys(SENSORS).map(sensorKey => (
+                <div key={sensorKey} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={sensorKey}
+                    checked={selectedSensors[sensorKey] || false}
+                    onChange={() => toggleSensor(sensorKey)}
+                    className="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <label htmlFor={sensorKey} className="ml-2 text-sm font-medium">
+                    {SENSORS[sensorKey].name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Battery Status Cards (only shown if battery is selected) */}
+          {selectedSensors.battery && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(getBatteryStatus(sensorData.battery?.battery1?.[sensorData.battery?.battery1?.length - 1]))}`}>
+                <h2 className="text-xl font-bold text-center mb-2">Battery 1</h2>
+                <p className="text-4xl font-bold text-center">
+                  {sensorData.battery?.battery1?.length > 0 ? 
+                    `${sensorData.battery.battery1[sensorData.battery.battery1.length - 1].toFixed(2)}V` : 'N/A'}
+                </p>
+                <p className="text-center mt-2">
+                  Status: <span className="font-bold">
+                    {getBatteryStatus(sensorData.battery?.battery1?.[sensorData.battery?.battery1?.length - 1]).toUpperCase()}
+                  </span>
+                </p>
+              </div>
+
+              <div className={`p-6 rounded-lg shadow-lg ${getStatusColor(getBatteryStatus(sensorData.battery?.battery2?.[sensorData.battery?.battery2?.length - 1]))}`}>
+                <h2 className="text-xl font-bold text-center mb-2">Battery 2</h2>
+                <p className="text-4xl font-bold text-center">
+                  {sensorData.battery?.battery2?.length > 0 ? 
+                    `${sensorData.battery.battery2[sensorData.battery.battery2.length - 1].toFixed(2)}V` : 'N/A'}
+                </p>
+                <p className="text-center mt-2">
+                  Status: <span className="font-bold">
+                    {getBatteryStatus(sensorData.battery?.battery2?.[sensorData.battery?.battery2?.length - 1]).toUpperCase()}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* DVL Current Values (only shown if DVL is selected) */}
+          {selectedSensors.dvl && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>X Velocity</h3>
+                <p className={`text-xl font-mono ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                  {formatValue(sensorData.dvl?.current?.vx, 'm/s')}
+                </p>
+              </div>
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Y Velocity</h3>
+                <p className={`text-xl font-mono ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                  {formatValue(sensorData.dvl?.current?.vy, 'm/s')}
+                </p>
+              </div>
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Z Velocity</h3>
+                <p className={`text-xl font-mono ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                  {formatValue(sensorData.dvl?.current?.vz, 'm/s')}
+                </p>
+              </div>
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Status</h3>
+                <div className="flex items-center">
+                  <span className={`h-3 w-3 rounded-full mr-2 ${getDVLStatusColor(sensorData.dvl?.current?.velocityValid)}`}></span>
+                  <span>{sensorData.dvl?.current?.velocityValid ? 'Valid' : 'Invalid'}</span>
+                  <span className={`ml-2 text-xs ${darkMode ? 'opacity-70' : 'text-gray-500'}`}>
+                    (Code: {sensorData.dvl?.current?.status || 'N/A'})
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Download CSV Button */}
+          <div className="flex justify-center mb-8">
+            <button
+              onClick={downloadCSV}
+              className={`px-6 py-2 ${darkMode ? 'bg-teal-500 hover:bg-teal-400' : 'bg-teal-600 hover:bg-teal-500'} text-white rounded-lg shadow-md font-semibold transition-colors duration-200`}
+              disabled={!timestamps.length}
+            >
+              Download Combined CSV
+            </button>
+          </div>
+
+          {/* Graphs Container */}
+          <div className="space-y-8">
+            {Object.keys(selectedSensors).map(sensorKey => {
+              if (!selectedSensors[sensorKey]) return null;
+              
+              const sensor = SENSORS[sensorKey];
+              return sensor.dataKeys.map((key, idx) => (
+                <GraphContainer
+                  key={`${sensorKey}-${key}`}
+                  title={`${sensor.name} - ${key} (${sensor.units[idx]})`}
+                  color={darkMode ? sensor.colors[idx] : darkenColor(sensor.colors[idx])}
+                  timestamps={sensorKey === 'dvl' ? sensorData.dvl?.elapsedTimes : elapsedTimes}
+                  data={sensorData[sensorKey]?.[key] || []}
+                  yAxisLabel={`${key} (${sensor.units[idx]})`}
+                  unit={sensor.units[idx]}
+                  darkMode={darkMode}
+                  yRange={sensor.yRanges[idx]}
+                  xRange={[0, 1000]} // 5 minutes in seconds
+                  latestValue={
+                    sensorKey === 'dvl' ? 
+                      sensorData.dvl?.current?.[key] :
+                      sensorData[sensorKey]?.[key]?.[sensorData[sensorKey][key]?.length - 1]
+                  }
+                />
+              ));
+            })}
+          </div>
+
+          {/* Raw Data Display
+          <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} mt-8`}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className={`text-lg font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                Raw Data
+              </h2>
+              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Elapsed: {elapsedTimes.length > 0 ? `${elapsedTimes[elapsedTimes.length - 1].toFixed(1)}s` : 'N/A'}
+              </span>
+            </div>
+            <pre className={`text-xs p-4 rounded overflow-x-auto max-h-60 ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-800'}`}>
+              {rawData}
+            </pre>
+          </div> */}
         </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 
+// Helper function to darken colors for light mode
+function darkenColor(hex, amount = 20) {
+  // Convert hex to RGB
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+
+  // Darken each component
+  r = Math.max(0, r - amount);
+  g = Math.max(0, g - amount);
+  b = Math.max(0, b - amount);
+
+  // Convert back to hex
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function GraphContainer({ title, color, timestamps, data, yAxisLabel, unit, darkMode, yRange, xRange, latestValue }) {
+  return (
+    <div className={`rounded-lg p-6 shadow-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold" style={{ color }}>
+          {title}
+        </h2>
+        <div className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+          <span className="font-mono" style={{ color }}>
+            {data.length > 0 ? `${latestValue?.toFixed(2) || data[data.length - 1]?.toFixed(2) || "N/A"} ${unit}` : "N/A"}
+          </span>
+        </div>
+      </div>
+      
+      <Plot
+        data={[
+          {
+            x: timestamps,
+            y: data,
+            type: "scatter",
+            mode: "lines",
+            line: { 
+              color,
+              width: 2,
+              shape: 'linear'
+            },
+            connectgaps: true,
+          },
+        ]}
+        layout={{
+          paper_bgcolor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)',
+          plot_bgcolor: darkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+          margin: { t: 30, b: 60, l: 60, r: 30, pad: 0 },
+          autosize: true,
+          xaxis: {
+            title: "Time (seconds)",
+            showgrid: true,
+            gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+            color: darkMode ? '#D1D5DB' : '#4B5563',
+            range: xRange,
+            fixedrange: true,
+            tick0: 0,
+            dtick: 60,
+          },
+          yaxis: {
+            title: yAxisLabel,
+            range: yRange,
+            fixedrange: true,
+            showgrid: true,
+            gridcolor: darkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.5)',
+          },
+          hovermode: "x unified",
+          showlegend: false,
+        }}
+        config={{
+          displayModeBar: true,
+          displaylogo: false,
+          responsive: true,
+          scrollZoom: true,
+          modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
+          modeBarButtonsToAdd: [
+            {
+              name: 'resetView',
+              title: 'Reset View',
+              icon: {
+                width: 500,
+                height: 600,
+                path: 'M512 256A256 256 0 1 0 0 256a256 256 0 1 0 512 0zM231 127c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-71 71L376 232c13.3 0 24 10.7 24 24s-10.7 24-24 24l-182.1 0 71 71c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L119 273c-9.4-9.4-9.4-24.6 0-33.9L231 127z',
+                transform: 'matrix(-1 0 0 1 0 0)'
+              },
+              click: function(gd) {
+                Plotly.relayout(gd, {
+                  'xaxis.autorange': false,
+                  'xaxis.range': xRange,
+                  'yaxis.autorange': false,
+                  'yaxis.range': yRange
+                });
+              }
+            }
+          ]
+        }}
+        useResizeHandler
+        style={{ width: "100%", height: "300px" }}
+      />
+    </div>
+  );
+}
