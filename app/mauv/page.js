@@ -253,74 +253,48 @@ export default function Dashboard() {
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-gray-50 text-gray-900"} font-sans p-6 transition-colors duration-300`}>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+     {/* Navigation Header */}
+      <header className="flex justify-between items-center mb-8">
+        {/* Branding Section */}
         <div className="flex items-center gap-4">
           <div className={`p-2 rounded-lg ${darkMode ? "bg-gradient-to-br from-blue-600 to-emerald-500" : "bg-gradient-to-br from-blue-400 to-emerald-400"}`}>
             <IconRobot className="h-6 w-6 text-white" />
           </div>
           <div>
             <h1 className={`text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${darkMode ? "from-blue-400 to-emerald-400" : "from-blue-500 to-emerald-500"}`}>
-              AQUA Robotics Control
+              AQUA Robotics Control - M'AUV
             </h1>
-            <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"} flex items-center gap-2`}>
-              <span className={`h-2 w-2 rounded-full ${rosStatus.roscore && rosStatus.rosbridge ? (darkMode ? 'bg-emerald-400' : 'bg-emerald-500') : (darkMode ? 'bg-rose-400' : 'bg-rose-500')}`}></span>
-              {rosStatus.roscore && rosStatus.rosbridge ? 'ROS Connected' : 'ROS Disconnected'}
-              <span className={darkMode ? "text-gray-500" : "text-gray-400"}>|</span>
-              Last update: {formatTime(lastUpdated)}
+            <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+              Last updated: {formatTime(lastUpdated)}
             </p>
           </div>
         </div>
         
+        {/* Action Controls */}
         <div className="flex items-center gap-4">
           <button
             onClick={toggleTheme}
-            className={`p-2 rounded-lg ${darkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
+            className={`p-2 rounded-lg transition-colors ${darkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
             {darkMode ? <IconSun className="h-5 w-5" /> : <IconMoon className="h-5 w-5" />}
           </button>
           
           <button 
-            onClick={checkRosStatus}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${darkMode ? "bg-gray-800 hover:bg-gray-700" : "bg-gray-100 hover:bg-gray-200 border border-gray-200"}`}
           >
             <IconRefresh className="h-4 w-4" />
             <span>Refresh</span>
           </button>
-          
-          <button
-            onClick={startRosProcesses}
-            disabled={isStarting}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm ${
-              isStarting
-                ? (darkMode ? "bg-blue-600/50" : "bg-blue-400/50") + " cursor-not-allowed"
-                : (darkMode ? "bg-blue-600 hover:bg-blue-500 shadow-lg hover:shadow-blue-500/20" : "bg-blue-500 hover:bg-blue-400 shadow-lg hover:shadow-blue-400/20")
-            }`}
-          >
-            {isStarting ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Starting...
-              </>
-            ) : (
-              <>
-                <IconRocket className="h-4 w-4" />
-                Start ROS
-              </>
-            )}
-          </button>
         </div>
-      </div>
+      </header>
 
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - ROS Status and Sensors */}
         <div className="space-y-6">
           {/* ROS Status Card */}
-          <div className={`p-5 rounded-xl shadow-lg ${darkMode ? "bg-gray-900 border border-gray-800" : "bg-white border border-gray-200"}`}>
+          {/* <div className={`p-5 rounded-xl shadow-lg ${darkMode ? "bg-gray-900 border border-gray-800" : "bg-white border border-gray-200"}`}>
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <IconRocket className={`h-5 w-5 ${darkMode ? "text-blue-400" : "text-blue-500"}`} />
@@ -343,7 +317,8 @@ export default function Dashboard() {
                 ? "All ROS processes are running normally"
                 : "ROS processes are not running. Start them to enable sensor communication."}
             </p>
-          </div>
+          </div> */}
+
 
           {/* Sensors Grid */}
           <div className="grid grid-cols-2 gap-4">
@@ -375,6 +350,21 @@ export default function Dashboard() {
                 </div>
               </Link>
             ))}
+          </div>
+          {/* Quick Access Buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/CombinedGraphPage" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
+              <IconChartBar className={`h-4 w-4 ${darkMode ? "text-blue-400" : "text-blue-500"}`} />
+              <span className="text-sm">Graphs</span>
+            </Link>
+            <Link href="/operations" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
+              <IconActivity className={`h-4 w-4 ${darkMode ? "text-emerald-400" : "text-emerald-500"}`} />
+              <span className="text-sm">Operations</span>
+            </Link>
+            {/* <Link href="/settings" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
+              <IconSettings className={`h-4 w-4 ${darkMode ? "text-purple-400" : "text-purple-500"}`} />
+              <span className="text-sm">Settings</span>
+            </Link> */}
           </div>
         </div>
 
@@ -524,21 +514,7 @@ export default function Dashboard() {
   </div>
 
           
-          {/* Quick Access Buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <Link href="/CombinedGraphPage" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
-              <IconChartBar className={`h-4 w-4 ${darkMode ? "text-blue-400" : "text-blue-500"}`} />
-              <span className="text-sm">Graphs</span>
-            </Link>
-            <Link href="/operations" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
-              <IconActivity className={`h-4 w-4 ${darkMode ? "text-emerald-400" : "text-emerald-500"}`} />
-              <span className="text-sm">Operations</span>
-            </Link>
-            {/* <Link href="/settings" className={`p-3 rounded-lg flex items-center gap-2 transition-colors ${darkMode ? "bg-gray-900 hover:bg-gray-800 border border-gray-800" : "bg-white hover:bg-gray-50 border border-gray-200"}`}>
-              <IconSettings className={`h-4 w-4 ${darkMode ? "text-purple-400" : "text-purple-500"}`} />
-              <span className="text-sm">Settings</span>
-            </Link> */}
-          </div>
+          
         </div>
       </div>
     </div>

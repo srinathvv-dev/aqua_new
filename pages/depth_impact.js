@@ -18,10 +18,25 @@ export default function Bar30Page() {
   const [darkMode, setDarkMode] = useState(true);
   const [startTime, setStartTime] = useState(null);
   const [elapsedTimes, setElapsedTimes] = useState([]);
+  const [currentXRange, setCurrentXRange] = useState([0, 60]); // Start with 0-60 seconds range
 
   const toggleTheme = () => {
     setDarkMode(!darkMode);
   };
+
+  // Update x-axis range dynamically
+  useEffect(() => {
+    if (elapsedTimes.length === 0) return;
+
+    const lastTime = elapsedTimes[elapsedTimes.length - 1];
+    const currentMax = currentXRange[1];
+    
+    // If we've exceeded the current x-range maximum, extend it by 60 seconds
+    if (lastTime > currentMax) {
+      const newMax = currentMax + 60;
+      setCurrentXRange([0, newMax]); // Always start from 0
+    }
+  }, [elapsedTimes, currentXRange]);
 
   useEffect(() => {
     const ws = createRosWebSocket("/depth_impact", (message) => {
@@ -156,7 +171,7 @@ export default function Bar30Page() {
             unit="m"
             darkMode={darkMode}
             yRange={[0, 5]} // Fixed range for depth
-            xRange={[0, 300]} // 5 minutes in seconds
+            xRange={currentXRange} // Dynamic x-range
           />
           
           {/* Temperature Graph */}
@@ -169,7 +184,7 @@ export default function Bar30Page() {
             unit="°C"
             darkMode={darkMode}
             yRange={[0, 40]} // Fixed range for temperature
-            xRange={[0, 300]} // 5 minutes in seconds
+            xRange={currentXRange} // Dynamic x-range
           />
           
           {/* Pressure Graph */}
@@ -182,7 +197,7 @@ export default function Bar30Page() {
             unit="mbar"
             darkMode={darkMode}
             yRange={[0, 2000]} // Fixed range for pressure
-            xRange={[0, 300]} // 5 minutes in seconds
+            xRange={currentXRange} // Dynamic x-range
           />
         </div>
       </div>
